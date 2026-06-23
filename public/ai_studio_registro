@@ -1,0 +1,64 @@
+-- sql/schema.sql
+CREATE DATABASE IF NOT EXISTS geoply_empleo;
+USE geoply_empleo;
+
+-- 1. Empresas y Organizaciones (Sección 4.1 del PDF)
+CREATE TABLE Organizacion (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_organizacion VARCHAR(255) NOT NULL,
+    nit VARCHAR(20) UNIQUE NOT NULL,
+    sector_economico VARCHAR(100),
+    direccion VARCHAR(255),
+    ciudad VARCHAR(100),
+    correo_corporativo VARCHAR(150),
+    sitio_web VARCHAR(255),
+    verificada BOOLEAN DEFAULT FALSE, -- Insignia de validación (Sección 4.2)
+    fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Aspirantes (Formulario de Registro de Aspirante)
+CREATE TABLE Aspirante (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nombre_completo VARCHAR(255) NOT NULL,
+    identificacion VARCHAR(50) UNIQUE,
+    correo VARCHAR(150) UNIQUE,
+    telefono VARCHAR(20),
+    municipio VARCHAR(100),
+    nivel_educativo VARCHAR(100),
+    profesion VARCHAR(150),
+    experiencia_anios INT,
+    aspiracion_salarial DECIMAL(15,2),
+    habilidades TEXT, -- Radar de habilidades (Sección 3.5)
+    latitud_residencia DOUBLE,
+    longitud_residencia DOUBLE
+);
+
+-- 3. Vacantes y Oportunidades
+CREATE TABLE Vacante (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    organizacion_id INT,
+    titulo VARCHAR(255),
+    descripcion TEXT,
+    salario DECIMAL(15,2),
+    experiencia_requerida INT,
+    nivel_educativo_req VARCHAR(100),
+    tipo_contrato VARCHAR(50),
+    categoria VARCHAR(50), -- 'Formal', 'Joven', 'Servicios Hogar'
+    latitud DOUBLE,
+    longitud DOUBLE,
+    sector_crecimiento DECIMAL(5,2), -- % de crecimiento del sector (Sección 2.2)
+    FOREIGN KEY (organizacion_id) REFERENCES Organizacion(id)
+);
+
+-- 4. Servicios del Hogar (Sección 4.3)
+CREATE TABLE ServicioHogar (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    tipo_servicio ENUM('Aseo', 'Jardinería', 'Cuidado Adultos', 'Cuidado Infantil', 'Mantenimiento'),
+    descripcion TEXT,
+    presupuesto_estimado DECIMAL(15,2),
+    direccion_aprox VARCHAR(255),
+    latitud DOUBLE,
+    longitud DOUBLE,
+    afiliacion_seguridad_social BOOLEAN,
+    fecha_publicacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

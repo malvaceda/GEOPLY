@@ -1,0 +1,347 @@
+// server.js
+'use strict';
+
+const express = require('express');
+const mysql   = require('mysql2/promise');
+const path    = require('path');
+
+const app = express();
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ─── Conexión a la base de datos ──────────────────────────
+const pool = mysql.createPool({
+  host:            process.env.DB_HOST     || 'localhost',
+  user:            process.env.DB_USER     || 'root',
+  password:        process.env.DB_PASSWORD || '',
+  database:        process.env.DB_NAME     || 'geoply_empleo',
+  waitForConnections: true,
+  connectionLimit: 10,
+});
+
+// ═══════════════════════════════════════════════════════════
+// ORGANIZACIONES / EMPRESAS
+// ═══════════════════════════════════════════════════════════
+
+// Registrar empresa (llamado desde modal-empresa en index.html)
+app.post('/api/registro-empresa', async (req, res) => {
+  try {
+    const { nombre, nit, sector, direccion, correo, telefono, descripcion } = req.body;
+
+    if (!nombre || !nit || !correo) {
+      return res.status(400).json({ error: 'Nombre, NIT y correo son obligatorios.' });
+    }
+
+    const [result] = await pool.query(
+      `INSERT INTO Organizacion
+         (nombre_organizacion, nit, sector_economico, direccion, correo_corporativo)
+       VALUES (?, ?, ?, ?, ?)`,
+      [nombre, nit, sector || null, direccion || null, correo]
+    );
+
+    res.json({
+      success: true,
+      id:      result.insertId,
+      message: 'Empresa registrada para validación institucional.',
+    });
+  } catch (err) {
+    // NIT duplicado
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Ya existe una organización con ese NIT.' });
+    }
+    console.error('[GeoPly] /api/registro-empresa:', err.message);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+});
+
+// Listar organizaciones verificadas (para mostrar en el mapa)
+app.get('/api/organizaciones', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT id, nombre_organizacion, sector_economico, ciudad, sitio_web, verificada
+       FROM Organizacion
+       ORDER BY fecha_registro DESC`
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('[GeoPly] /api/organizaciones:', err.message);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+});
+
+// Verificar una organización (acción administrativa)
+app.patch('/api/organizaciones/:id/verificar', async (req, res) => {
+  try {
+    await pool.query('UPDATE Organizacion SET verificada = TRUE WHERE id = ?', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[GeoPly] /api/organizaciones/:id/verificar:', err.message);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+// ASPIRANTES
+// ═══════════════════════════════════════════════════════════
+
+// Registrar aspirante (llamado desde modal-aspirante en index.html)
+app.post('/api/registro-aspirante', async (req, res) => {
+  try {
+    const {
+      nombre, correo, telefono, municipio,
+      nivel_educativo, experiencia_anios, area_interes,
+      aspiracion_salarial, descripcion,
+    } = req.body;
+
+    if (!nombre || !correo) {
+      return res.status(400).json({ error: 'Nombre y correo son obligatorios.' });
+    }
+
+    const [result] = await pool.query(
+      `INSERT INTO Aspirante
+         (nombre_completo, correo, telefono, municipio,
+          nivel_educativo, profesion, experiencia_anios,
+          aspiracion_salarial, habilidades)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        nombre, correo, telefono || null, municipio || null,
+        nivel_educativo || null, area_interes || null,
+        parseInt(experiencia_anios) || 0,
+        parseFloat(aspiracion_salarial) || 0,
+        descripcion || null,
+      ]
+    );
+
+    res.json({
+      success: true,
+      id:      result.insertId,
+      message: 'Aspirante registrado correctamente.',
+    });
+  } catch (err) {
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Ya existe un aspirante con ese correo.' });
+    }
+    console.error('[GeoPly] /api/registro-aspirante:', err.message);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+// VACANTES
+// ═══════════════════════════════════════════════════════════
+
+// Listar vacantes (con datos de la organización para el mapa)
+app.get('/api/vacantes', async (req, res) => {
+  try {
+    const { categoria, lat, lng, radio } = req.query;
+
+    let sql = `
+      SELECT v.*, o.nombre_organizacion, o.verificada
+      FROM Vacante v
+      LEFT JOIN Organizacion o ON v.organizacion_id = o.id
+      WHERE 1=1`;
+    const params = [];
+
+    if (categoria) {
+      sql += ' AND v.categoria = ?';
+      params.push(categoria);
+    }
+
+    // Filtro por radio (km) usando Haversine directamente en SQL
+    if (lat && lng && radio) {
+      sql += `
+        AND (
+          6371 * ACOS(
+            COS(RADIANS(?)) * COS(RADIANS(v.latitud)) *
+            COS(RADIANS(v.longitud) - RADIANS(?)) +
+            SIN(RADIANS(?)) * SIN(RADIANS(v.latitud))
+          )
+        ) <= ?`;
+      params.push(parseFloat(lat), parseFloat(lng), parseFloat(lat), parseFloat(radio));
+    }
+
+    sql += ' ORDER BY v.id DESC';
+
+    const [rows] = await pool.query(sql, params);
+    res.json(rows);
+  } catch (err) {
+    console.error('[GeoPly] /api/vacantes:', err.message);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+});
+
+// Crear vacante (empresa autenticada)
+app.post('/api/vacantes', async (req, res) => {
+  try {
+    const {
+      organizacion_id, titulo, descripcion, salario,
+      experiencia_requerida, nivel_educativo_req,
+      tipo_contrato, categoria, latitud, longitud, sector_crecimiento,
+    } = req.body;
+
+    if (!titulo || !organizacion_id) {
+      return res.status(400).json({ error: 'Título y organización son obligatorios.' });
+    }
+
+    const [result] = await pool.query(
+      `INSERT INTO Vacante
+         (organizacion_id, titulo, descripcion, salario,
+          experiencia_requerida, nivel_educativo_req,
+          tipo_contrato, categoria, latitud, longitud, sector_crecimiento)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        organizacion_id, titulo, descripcion || null,
+        parseFloat(salario) || null,
+        parseInt(experiencia_requerida) || 0,
+        nivel_educativo_req || null, tipo_contrato || null,
+        categoria || null,
+        parseFloat(latitud) || null, parseFloat(longitud) || null,
+        parseFloat(sector_crecimiento) || null,
+      ]
+    );
+
+    res.json({ success: true, id: result.insertId });
+  } catch (err) {
+    console.error('[GeoPly] /api/vacantes POST:', err.message);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+// SERVICIOS DEL HOGAR (Sección 4.3)
+// ═══════════════════════════════════════════════════════════
+
+app.get('/api/servicios-hogar', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT * FROM ServicioHogar ORDER BY fecha_publicacion DESC`
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('[GeoPly] /api/servicios-hogar:', err.message);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+});
+
+app.post('/api/servicios-hogar', async (req, res) => {
+  try {
+    const {
+      tipo_servicio, descripcion, presupuesto_estimado,
+      direccion_aprox, latitud, longitud, afiliacion_seguridad_social,
+    } = req.body;
+
+    const [result] = await pool.query(
+      `INSERT INTO ServicioHogar
+         (tipo_servicio, descripcion, presupuesto_estimado,
+          direccion_aprox, latitud, longitud, afiliacion_seguridad_social)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        tipo_servicio, descripcion || null,
+        parseFloat(presupuesto_estimado) || null,
+        direccion_aprox || null,
+        parseFloat(latitud) || null, parseFloat(longitud) || null,
+        afiliacion_seguridad_social ? 1 : 0,
+      ]
+    );
+
+    res.json({ success: true, id: result.insertId });
+  } catch (err) {
+    console.error('[GeoPly] /api/servicios-hogar POST:', err.message);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+// GEOPLY SCORE (Sección 3.1)
+// ═══════════════════════════════════════════════════════════
+
+app.get('/api/geoply-score/:aspiranteId/:vacanteId', async (req, res) => {
+  try {
+    const [[asp]] = await pool.query('SELECT * FROM Aspirante WHERE id = ?', [req.params.aspiranteId]);
+    const [[vac]] = await pool.query('SELECT * FROM Vacante   WHERE id = ?', [req.params.vacanteId]);
+
+    if (!asp || !vac) return res.status(404).json({ error: 'Aspirante o vacante no encontrado.' });
+
+    let score = 0;
+    const detalle = {};
+
+    // 1. Salario (20 pts)
+    if (vac.salario && asp.aspiracion_salarial && vac.salario >= asp.aspiracion_salarial) {
+      score += 20;
+      detalle.salario = 20;
+    } else {
+      detalle.salario = 0;
+    }
+
+    // 2. Distancia (20 pts) — Haversine
+    if (asp.latitud_residencia && asp.longitud_residencia && vac.latitud && vac.longitud) {
+      const distKm = haversine(
+        asp.latitud_residencia, asp.longitud_residencia,
+        vac.latitud, vac.longitud
+      );
+      if (distKm < 5)       { score += 20; detalle.distancia = 20; }
+      else if (distKm < 15) { score += 10; detalle.distancia = 10; }
+      else                  { detalle.distancia = 0; }
+      detalle.distancia_km = Math.round(distKm * 10) / 10;
+    }
+
+    // 3. Experiencia (15 pts)
+    if (asp.experiencia_anios >= vac.experiencia_requerida) {
+      score += 15;
+      detalle.experiencia = 15;
+    } else {
+      detalle.experiencia = 0;
+    }
+
+    // 4. Nivel educativo (15 pts)
+    const nivelMap = { primaria: 1, bachillerato: 2, tecnico: 3, universitario: 4, posgrado: 5 };
+    const nivAsp   = nivelMap[asp.nivel_educativo?.toLowerCase()] || 0;
+    const nivVac   = nivelMap[vac.nivel_educativo_req?.toLowerCase()] || 0;
+    if (nivAsp >= nivVac) {
+      score += 15;
+      detalle.nivel_educativo = 15;
+    } else {
+      detalle.nivel_educativo = 0;
+    }
+
+    // 5. Sector de crecimiento (10 pts)
+    if (vac.sector_crecimiento && vac.sector_crecimiento >= 5) {
+      score += 10;
+      detalle.sector_crecimiento = 10;
+    } else {
+      detalle.sector_crecimiento = 0;
+    }
+
+    // Base mínima 20 pts
+    const total = Math.min(score + 20, 100);
+
+    res.json({
+      score:   total,
+      detalle,
+      verdict: total >= 70 ? 'Alta Compatibilidad' : total >= 45 ? 'Compatibilidad Media' : 'Baja Compatibilidad',
+    });
+  } catch (err) {
+    console.error('[GeoPly] /api/geoply-score:', err.message);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+});
+
+// ─── Fórmula Haversine (distancia en km) ─────────────────
+function haversine(lat1, lon1, lat2, lon2) {
+  const R    = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a    = Math.sin(dLat / 2) ** 2
+             + Math.cos(lat1 * Math.PI / 180)
+             * Math.cos(lat2 * Math.PI / 180)
+             * Math.sin(dLon / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// ═══════════════════════════════════════════════════════════
+// INICIO
+// ═══════════════════════════════════════════════════════════
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`[GeoPly] Servidor corriendo en http://localhost:${PORT}`);
+});
