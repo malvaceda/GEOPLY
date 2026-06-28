@@ -1,8 +1,5 @@
 'use strict';
 
-/* ═══════════════════════════════════════════════════════════
-   CONFIGURACIÓN GLOBAL
-═══════════════════════════════════════════════════════════ */
 const MAP_CENTER = [4.5709, -74.2973];
 const MAP_ZOOM   = 5;
 
@@ -27,9 +24,6 @@ let MAP         = null;
 let markerLayer = null;
 let heatLayer   = null;
 
-/* ═══════════════════════════════════════════════════════════
-   INIT
-═══════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
   try {
     initMap();
@@ -48,9 +42,6 @@ function showError() {
   if (error) error.classList.remove('hidden');
 }
 
-/* ═══════════════════════════════════════════════════════════
-   MAPA
-═══════════════════════════════════════════════════════════ */
 function initMap() {
   const mapEl = document.getElementById('map');
   if (!mapEl) { showError(); return; }
@@ -123,9 +114,6 @@ function getFilteredRecords() {
   });
 }
 
-/* ═══════════════════════════════════════════════════════════
-   MARCADORES & CALOR
-═══════════════════════════════════════════════════════════ */
 function buildMapLayers() {
   if (!MAP) return;
   if (markerLayer) markerLayer.clearLayers();
@@ -291,9 +279,6 @@ function buildTrendInsights() {
   }).join('');
 }
 
-/* ═══════════════════════════════════════════════════════════
-   AI TOGGLE
-═══════════════════════════════════════════════════════════ */
 function updateAIToggleUI() {
   const btn = document.getElementById('ai-toggle-btn');
   if (!btn) return;
