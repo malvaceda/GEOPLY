@@ -1,15 +1,3 @@
-/**
- * geo-data.js — GeoPly · Tabla de geolocalización de respaldo
- * ════════════════════════════════════════════════════════════
- * Muchos datasets de datos.gov.co NO traen latitud/longitud,
- * sino el nombre del municipio o departamento. Esta tabla permite
- * ubicar esos registros aproximadamente en el mapa (centro del
- * municipio/departamento) cuando no hay coordenadas explícitas.
- *
- * Las claves están normalizadas: minúsculas, sin tildes, sin
- * caracteres especiales. Usa normalizeKey() para consultarla.
- */
-
 'use strict';
 
 function normalizeKey(str) {

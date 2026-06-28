@@ -33,7 +33,6 @@ let heatLayer   = null;
 document.addEventListener('DOMContentLoaded', () => {
   try {
     initMap();
-    buildLayers();
     updateAIToggleUI();
     loadAllDatasets();
   } catch (err) {
@@ -96,48 +95,11 @@ window.resetView = function () {
   if (MAP) MAP.flyTo(MAP_CENTER, MAP_ZOOM, { duration: 0.9 });
 };
 
-window.toggleLegend = function () {
-  STATE.legendOpen = !STATE.legendOpen;
-  const el = document.getElementById('map-legend');
-  if (el) el.classList.toggle('hidden', !STATE.legendOpen);
-};
-
 window.flyTo = function (lat, lng, zoom = 12) {
   if (MAP && typeof lat === 'number' && typeof lng === 'number')
     MAP.flyTo([lat, lng], zoom, { duration: 0.8 });
 };
 
-/* ═══════════════════════════════════════════════════════════
-   CAPAS / LAYER TOGGLES
-═══════════════════════════════════════════════════════════ */
-const LAYER_DEFS = [{ key: 'oportunidad', label: 'Análisis de Oportunidad' }];
-
-function buildLayers() {
-  const el = document.getElementById('layer-list');
-  if (!el) return;
-  el.innerHTML = LAYER_DEFS.map(l => {
-    const on = STATE.layers[l.key];
-    return `
-      <div class="layer-row" onclick="toggleLayer('${l.key}')">
-        <span class="layer-dot" aria-hidden="true"></span>
-        <span class="layer-label ${on ? 'on' : 'off'}">${l.label}</span>
-        <div class="toggle ${on ? 'on' : 'off'}" aria-checked="${on}" role="switch">
-          <div class="toggle-knob ${on ? 'on' : 'off'}"></div>
-        </div>
-      </div>`;
-  }).join('');
-}
-
-window.toggleLayer = function (key) {
-  if (!(key in STATE.layers)) return;
-  STATE.layers[key] = !STATE.layers[key];
-  buildLayers();
-  buildMapLayers();
-};
-
-/* ═══════════════════════════════════════════════════════════
-   COLORES & CATEGORÍAS
-═══════════════════════════════════════════════════════════ */
 function categoryColor(value) {
   if (!value || !STATE.categories.length) return CATEGORY_COLORS[CATEGORY_COLORS.length - 1];
   let idx = STATE.categories.findIndex(c => c.toLowerCase() === String(value).toLowerCase());
@@ -211,9 +173,6 @@ function renderHeat(data) {
   }
 }
 
-/* ═══════════════════════════════════════════════════════════
-   POPUP MAPA
-═══════════════════════════════════════════════════════════ */
 function buildEmpleoPopup(item) {
   const r = item.record;
   const categoria = STATE.categoryField ? r[STATE.categoryField] : null;
@@ -233,9 +192,6 @@ function buildEmpleoPopup(item) {
       ${categoria ? `<div class="popup-growth"><strong>${formatearTitulo(STATE.categoryField)}:</strong> ${categoria}</div>` : ''}
       ${extrasHtml}
       ${approxNote}
-      <button class="popup-action-btn" onclick="onMarkerClickById('${item.datasetId}', ${item.index})">
-        ✦ Ver detalle completo →
-      </button>
     </div>`;
 }
 
@@ -250,9 +206,6 @@ function onMarkerClick(item) {
   openRecordDetail(item.datasetId, item.index);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   CHIPS DE CATEGORÍA
-═══════════════════════════════════════════════════════════ */
 function buildCategoryChips() {
   const el = document.getElementById('filter-chips');
   if (!el) return;
@@ -282,21 +235,6 @@ window.setCategory = function (val) {
   buildMapLayers();
 };
 
-function buildLegendCategories() {
-  const el = document.getElementById('legend-categories');
-  if (!el) return;
-  if (!STATE.categoryField || !STATE.categories.length) { el.innerHTML = ''; return; }
-  const sorted = [...STATE.categories]
-    .sort((a, b) => (STATE.categoryCounts[b] || 0) - (STATE.categoryCounts[a] || 0))
-    .slice(0, 8);
-  el.innerHTML = sorted.map(val =>
-    `<div class="legend-row"><span class="ldot" style="background:${categoryColor(val)}"></span>${val}</div>`
-  ).join('');
-}
-
-/* ═══════════════════════════════════════════════════════════
-   RESUMEN / BARRAS
-═══════════════════════════════════════════════════════════ */
 function updateSummary(loaded, total) {
   const pct = total > 0 ? (loaded / total) * 100 : 0;
   const circumference = 2 * Math.PI * 42;
@@ -317,9 +255,7 @@ function updateSummary(loaded, total) {
 
   const bars = [
     { name: 'Datasets cargados',  val: pct,    display: `${loaded}/${total}`, color: '#00ff88' },
-    { name: 'Registros ubicados', val: geoPct, display: `${EMPLEO_RECORDS.length}`, color: '#4fc3f7' },
     { name: 'Total registros',    val: totalRecords > 0 ? 100 : 0, display: `${totalRecords}`, color: '#a78bfa' },
-    { name: 'Categorías',         val: catPct, display: `${STATE.categories ? STATE.categories.length : 0}`, color: '#ffd700' },
   ];
 
   const barsEl = document.getElementById('opp-bars');
@@ -332,9 +268,6 @@ function updateSummary(loaded, total) {
     </div>`).join('');
 }
 
-/* ═══════════════════════════════════════════════════════════
-   TENDENCIAS AI
-═══════════════════════════════════════════════════════════ */
 function buildTrendInsights() {
   const el = document.getElementById('ai-insights');
   if (!el) return;
@@ -457,16 +390,12 @@ function openRecordDetail(datasetId, index) {
         if (val && typeof val === 'object') val = JSON.stringify(val);
         if (val === '' || val === null || val === undefined) val = 'No especificado';
         return `<div class="reasoning-step"><strong>${formatearTitulo(k)}:</strong> ${val}</div>`;
-      }).join('')}`;
+      }).join('')}`;     
+    const openBtn = document.getElementById('d-open-dataset');
+    if (openBtn) openBtn.onclick = () => openDashboard(datasetId); 
   }
-
-  const openBtn = document.getElementById('d-open-dataset');
-  if (openBtn) openBtn.onclick = () => openDashboard(datasetId);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   GEOPLY SCORE (cálculo en cliente)
-═══════════════════════════════════════════════════════════ */
 function calcularScoreSimulado(record) {
   let score = 60;
   const numVals = Object.values(record)
@@ -477,26 +406,39 @@ function calcularScoreSimulado(record) {
   return Math.min(score, 100);
 }
 
-/* ═══════════════════════════════════════════════════════════
-   MODALES: ASPIRANTE / EMPRESA
-═══════════════════════════════════════════════════════════ */
 window.abrirModal = function (id) {
   const modal = document.getElementById(id);
-  if (modal) {
-    modal.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+
+  if (id === 'modal-aspirante') {
+    const saved = localStorage.getItem('geoply_aspirante');
+    if (saved) {
+      mostrarPerfilAspirante(JSON.parse(saved));
+    }
   }
 };
 
 window.cerrarModales = function () {
-  ['modal-aspirante', 'modal-empresa'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.classList.add('hidden');
-  });
+  const modal = document.getElementById('modal-aspirante');
+  if (modal) modal.classList.add('hidden');
   document.body.style.overflow = '';
+
+  // Resetear estado del modal
+  const succEl  = document.getElementById('success-aspirante');
+  const profileEl = document.getElementById('profile-aspirante');
+  const form    = document.getElementById('form-aspirante');
+  if (succEl)    succEl.classList.remove('visible');
+  if (profileEl) profileEl.classList.add('hidden');
+  if (form) {
+    form.style.display = '';
+    delete form.dataset.editMode;
+    const btn = form.querySelector('.form-submit');
+    if (btn) btn.textContent = 'Registrarme en GeoPly';
+  }
 };
 
-// Cerrar al hacer clic en el fondo del overlay
 document.addEventListener('DOMContentLoaded', () => {
   ['modal-aspirante', 'modal-empresa'].forEach(id => {
     const el = document.getElementById(id);
@@ -508,13 +450,68 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-/* ─── Registro de Aspirante ─────────────────────────────── */
+function mostrarPerfilAspirante(data) {
+  document.getElementById('form-aspirante').style.display = 'none';
+  document.getElementById('success-aspirante').classList.remove('visible');
+
+  const labels = {
+    correo:              'Correo',
+    telefono:            'Teléfono',
+    municipio:           'Municipio',
+    nivel_educativo:     'Nivel educativo',
+    experiencia_anios:   'Años de experiencia',
+    area_interes:        'Área de interés',
+    aspiracion_salarial: 'Aspiración salarial (COP)',
+    descripcion:         'Perfil / habilidades',
+  };
+
+  document.getElementById('profile-nombre').textContent = data.nombre || '—';
+
+  const fieldsEl = document.getElementById('profile-fields');
+  fieldsEl.innerHTML = Object.entries(labels)
+    .filter(([k]) => data[k] !== undefined && data[k] !== '')
+    .map(([k, label]) => `
+      <div class="profile-field">
+        <span class="profile-field-label">${label}</span>
+        <span class="profile-field-value">${data[k]}</span>
+      </div>`).join('');
+
+  document.getElementById('profile-aspirante').classList.remove('hidden');
+}
+
+window.activarEdicionAspirante = function () {
+  const saved = JSON.parse(localStorage.getItem('geoply_aspirante'));
+  if (!saved) return;
+
+  document.getElementById('profile-aspirante').classList.add('hidden');
+
+  const form = document.getElementById('form-aspirante');
+  form.style.display = '';
+  form.dataset.editMode = 'true';
+
+  form.nombre.value            = saved.nombre            || '';
+  form.correo.value            = saved.correo            || '';
+  form.telefono.value          = saved.telefono          || '';
+  form.municipio.value         = saved.municipio         || '';
+  form.nivel_educativo.value   = saved.nivel_educativo   || 'universitario';
+  form.experiencia_anios.value = saved.experiencia_anios || 0;
+  form.area_interes.value      = saved.area_interes      || 'tecnologia';
+  form.aspiracion_salarial.value = saved.aspiracion_salarial || 1300000;
+  if (form.descripcion) form.descripcion.value = saved.descripcion || '';
+
+  form.querySelector('.form-submit').textContent = 'Actualizar mi perfil';
+};
+
 window.registrarAspirante = async function (e) {
   e.preventDefault();
-  const form    = e.target;
-  const btn     = form.querySelector('.form-submit');
-  const errEl   = form.querySelector('.form-error-msg');
-  const succEl  = form.querySelector('.form-success');
+  const form      = e.target;
+  const btn       = form.querySelector('.form-submit');
+  const errEl     = document.getElementById('err-aspirante');
+  const succEl    = document.getElementById('success-aspirante');
+  const isEditing = form.dataset.editMode === 'true';
+  const saved     = isEditing
+    ? JSON.parse(localStorage.getItem('geoply_aspirante'))
+    : null;
 
   btn.classList.add('loading');
   btn.textContent = 'Enviando…';
@@ -533,8 +530,13 @@ window.registrarAspirante = async function (e) {
   };
 
   try {
-    const res = await fetch('/api/registro-aspirante', {
-      method: 'POST',
+    const url    = isEditing && saved?.id
+      ? `/api/registro-aspirante/${saved.id}`
+      : '/api/registro-aspirante';
+    const method = isEditing && saved?.id ? 'PUT' : 'POST';
+
+    const res    = await fetch(url, {
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
@@ -543,6 +545,11 @@ window.registrarAspirante = async function (e) {
     const result = await res.json();
 
     if (result.success) {
+      localStorage.setItem('geoply_aspirante',
+        JSON.stringify({ ...data, id: result.id || saved?.id }));
+      form.style.display = '';
+      delete form.dataset.editMode;
+      btn.textContent = 'Registrarme en GeoPly';
       form.style.display = 'none';
       if (succEl) succEl.classList.add('visible');
     } else {
@@ -550,66 +557,17 @@ window.registrarAspirante = async function (e) {
     }
   } catch (err) {
     console.warn('[GeoPly] registro aspirante (modo offline):', err.message);
-    // Simulación offline para demo/Firebase Studio
+    localStorage.setItem('geoply_aspirante',
+      JSON.stringify({ ...data, id: saved?.id || Date.now() }));
     form.style.display = 'none';
-    if (succEl) succEl.classList.add('visible');
-  } finally {
-    btn.classList.remove('loading');
+    delete form.dataset.editMode;
     btn.textContent = 'Registrarme en GeoPly';
-  }
-};
-
-/* ─── Registro de Empresa ───────────────────────────────── */
-window.registrarEmpresa = async function (e) {
-  e.preventDefault();
-  const form   = e.target;
-  const btn    = form.querySelector('.form-submit');
-  const errEl  = form.querySelector('.form-error-msg');
-  const succEl = form.querySelector('.form-success');
-
-  btn.classList.add('loading');
-  btn.textContent = 'Enviando…';
-  if (errEl) errEl.classList.remove('visible');
-
-  const data = {
-    nombre:   form.nombre.value.trim(),
-    nit:      form.nit.value.trim(),
-    sector:   form.sector.value,
-    direccion: form.direccion?.value?.trim() || '',
-    correo:   form.correo.value.trim(),
-    telefono: form.telefono?.value?.trim() || '',
-    descripcion: form.descripcion?.value?.trim() || '',
-  };
-
-  try {
-    const res = await fetch('/api/registro-empresa', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-
-    if (!res.ok) throw new Error(`Error ${res.status}`);
-    const result = await res.json();
-
-    if (result.success) {
-      form.style.display = 'none';
-      if (succEl) succEl.classList.add('visible');
-    } else {
-      throw new Error(result.error || 'Error desconocido');
-    }
-  } catch (err) {
-    console.warn('[GeoPly] registro empresa (modo offline):', err.message);
-    form.style.display = 'none';
     if (succEl) succEl.classList.add('visible');
   } finally {
     btn.classList.remove('loading');
-    btn.textContent = 'Enviar para Validación';
   }
 };
 
-/* ═══════════════════════════════════════════════════════════
-   DASHBOARD (panel de datos)
-═══════════════════════════════════════════════════════════ */
 let currentDatasetId = null;
 let dashView         = 'charts';
 

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GeoPly · Panel de Empleo</title>
+  <title>GeoPly</title>
 
   <!-- Fuentes -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -17,55 +17,33 @@
 </head>
 <body>
 
-  <!-- ═══════════════════════════════════
-       HEADER
-  ══════════════════════════════════════ -->
   <header class="app-header">
     <div class="header-inner">
       <div class="brand">
         <div class="brand-orb" aria-hidden="true"></div>
         <span class="brand-wordmark">GEO<span class="brand-accent">PLY</span></span>
         <span class="brand-divider">·</span>
-        <span class="brand-sub">Panel de Empleo · Datos Abiertos</span>
+        <span class="brand-sub">Datos Abiertos</span>
       </div>
       <div class="header-status">
         <!-- Botón aspirante -->
         <button class="dash-open-btn" onclick="abrirModal('modal-aspirante')">
           Soy Aspirante
         </button>
-        <!-- Botón empresa -->
-        <button class="dash-open-btn" style="border-color:var(--blue);color:var(--blue);" onclick="abrirModal('modal-empresa')">
-          Publicar Vacante
-        </button>
-        <!-- Panel de datos abiertos -->
         <button class="dash-open-btn" onclick="openDashboard()">
           <span class="ai-star">✦</span> Panel de Empleo
         </button>
-        <div class="status-pill">
-          <span class="status-dot" aria-hidden="true"></span>
-          <span id="data-status">Cargando datos…</span>
-        </div>
-        <div id="perf-badge" class="perf-badge" title="Tiempo de carga inicial"></div>
       </div>
     </div>
   </header>
 
-  <!-- ═══════════════════════════════════
-       CUERPO PRINCIPAL
-  ══════════════════════════════════════ -->
   <main class="app-main">
 
-    <!-- ── Sidebar izquierdo ─────────── -->
     <aside class="sidebar sidebar-left" aria-label="Panel de control">
-      <section class="panel-block">
-        <h2 class="block-title">CAPAS</h2>
-        <div class="layer-list" id="layer-list"></div>
-      </section>
 
       <section class="panel-block">
         <h2 class="block-title">CATEGORÍA DE EMPLEO</h2>
         <div class="filter-chips" id="filter-chips">
-          <p class="hint">Detectando categorías…</p>
         </div>
       </section>
 
@@ -98,11 +76,9 @@
       </section>
     </aside>
 
-    <!-- ── Mapa central ──────────────── -->
     <div class="map-wrap">
       <div id="map" role="application" aria-label="Mapa de oportunidades de empleo en Colombia"></div>
 
-      <!-- Controles del mapa -->
       <div class="map-controls">
         <button class="map-ctrl-btn" onclick="resetView()" title="Centrar mapa">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
@@ -111,33 +87,13 @@
           </svg>
           Centrar
         </button>
-        <button class="map-ctrl-btn" onclick="toggleLegend()" title="Leyenda">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-            <rect x="3" y="3" width="7" height="7" rx="1"/>
-            <rect x="14" y="3" width="7" height="7" rx="1"/>
-            <rect x="3" y="14" width="7" height="7" rx="1"/>
-            <rect x="14" y="14" width="7" height="7" rx="1"/>
-          </svg>
-          Leyenda
-        </button>
       </div>
 
-      <!-- Leyenda -->
-      <div class="map-legend hidden" id="map-legend" aria-label="Leyenda del mapa">
-        <p class="legend-title">LEYENDA</p>
-        <div id="legend-categories"></div>
-        <div class="legend-row">
-          <span class="ldot" style="background:#a78bfa"></span>Sin categoría / otros
-        </div>
-      </div>
-
-      <!-- Loader -->
       <div class="map-loading" id="map-loading" aria-live="polite">
         <div class="spinner"></div>
         <p class="loading-txt">Cargando mapa…</p>
       </div>
 
-      <!-- Error -->
       <div class="map-error hidden" id="map-error" role="alert">
         <span class="error-icon" aria-hidden="true">⚠️</span>
         <p>No se pudo inicializar el mapa.</p>
@@ -146,7 +102,6 @@
       </div>
     </div>
 
-    <!-- ── Sidebar derecho: detalle ──── -->
     <aside class="sidebar sidebar-right" aria-label="Detalle del registro">
       <!-- Estado vacío -->
       <div id="detail-empty" class="detail-empty">
@@ -158,7 +113,6 @@
         </button>
       </div>
 
-      <!-- AI desactivada -->
       <div id="detail-disabled" class="detail-empty hidden">
         <img src="explorar.png" class="empty-icon-img" alt="Explorar mapa"
              style="opacity:0.3;filter:grayscale(1);" onerror="this.style.display='none'" />
@@ -168,7 +122,6 @@
         </button>
       </div>
 
-      <!-- Detalle del registro -->
       <div id="record-detail" class="commune-detail hidden">
         <div class="detail-header">
           <div id="d-name" class="d-name"></div>
@@ -185,9 +138,6 @@
     </aside>
   </main>
 
-  <!-- ═══════════════════════════════════
-       MODAL: SOY ASPIRANTE
-  ══════════════════════════════════════ -->
   <div id="modal-aspirante" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Registro de Aspirante">
     <div class="modal-card">
       <div class="modal-header">
@@ -195,13 +145,26 @@
         <button class="modal-close" onclick="cerrarModales()" aria-label="Cerrar">✕</button>
       </div>
       <div class="modal-body">
-        <!-- Mensaje de éxito -->
         <div class="form-success" id="success-aspirante">
-          <div class="form-success-icon">✦</div>
-          <div class="form-success-title">¡Registro enviado!</div>
-          <div class="form-success-text">Tu perfil ha sido recibido. El sistema GeoPly calculará tu compatibilidad con las vacantes disponibles y recibirás notificaciones a tu correo.</div>
+          <div class="form-success-icon">
+            <svg class="checkmark-anim" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
+              <circle class="checkmark-circle" cx="26" cy="26" r="24" fill="none"/>
+              <path class="checkmark-check" fill="none" d="M13 27 l9 9 l17 -18"/>
+            </svg>
+          </div>
+        <div class="form-success-title">¡Formulario exitoso!</div>
+        <div class="form-success-text">Tu perfil ha sido recibido. El sistema GeoPly calculará tu compatibilidad con las vacantes disponibles y recibirás notificaciones a tu correo.</div>
+      </div>
+      <div id="profile-aspirante" class="profile-aspirante hidden">
+        <div class="profile-header">
+          <div class="profile-name" id="profile-nombre"></div>
+          <span class="profile-badge">✦ Perfil registrado</span>
         </div>
-
+        <div class="profile-fields" id="profile-fields"></div>
+        <button class="form-submit profile-edit-btn" onclick="activarEdicionAspirante()">
+          ✎ &nbsp;Editar mi información
+        </button>
+      </div>
         <form id="form-aspirante" onsubmit="registrarAspirante(event)">
           <div class="form-row">
             <div class="form-group">
@@ -277,87 +240,6 @@
     </div>
   </div>
 
-  <!-- ═══════════════════════════════════
-       MODAL: PUBLICAR VACANTE (EMPRESA)
-  ══════════════════════════════════════ -->
-  <div id="modal-empresa" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Registro de Empresa">
-    <div class="modal-card">
-      <div class="modal-header">
-        <span class="modal-title" style="color:var(--blue)">REGISTRO DE EMPRESA / ENTIDAD</span>
-        <button class="modal-close" onclick="cerrarModales()" aria-label="Cerrar">✕</button>
-      </div>
-      <div class="modal-body">
-        <!-- Mensaje de éxito -->
-        <div class="form-success" id="success-empresa">
-          <div class="form-success-icon">✦</div>
-          <div class="form-success-title">¡Solicitud enviada!</div>
-          <div class="form-success-text">Tu organización ha sido registrada para validación institucional. Nuestro equipo verificará el NIT y te notificará la activación en un plazo de 24 horas hábiles.</div>
-        </div>
-
-        <form id="form-empresa" onsubmit="registrarEmpresa(event)">
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label" for="emp-nombre">Nombre de la organización</label>
-              <input class="form-input" type="text" id="emp-nombre" name="nombre" required placeholder="Ej: Tech Solutions SAS" />
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="emp-nit">NIT (validación institucional)</label>
-              <input class="form-input" type="text" id="emp-nit" name="nit" required placeholder="900.000.000-1" />
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label" for="emp-sector">Sector económico</label>
-              <select class="form-select" id="emp-sector" name="sector">
-                <option value="tecnologia">Tecnología</option>
-                <option value="servicios">Servicios</option>
-                <option value="industria">Industria</option>
-                <option value="salud">Salud</option>
-                <option value="educacion">Educación</option>
-                <option value="agropecuario">Agropecuario</option>
-                <option value="construccion">Construcción</option>
-                <option value="comercio">Comercio</option>
-                <option value="transporte">Transporte / Logística</option>
-                <option value="financiero">Financiero</option>
-                <option value="otro">Otro</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="emp-telefono">Teléfono de contacto</label>
-              <input class="form-input" type="tel" id="emp-telefono" name="telefono" placeholder="(4) XXX XXXX" />
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="emp-correo">Correo corporativo</label>
-            <input class="form-input" type="email" id="emp-correo" name="correo" required placeholder="rrhh@empresa.com.co" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="emp-direccion">Dirección / Municipio</label>
-            <input class="form-input" type="text" id="emp-direccion" name="direccion" placeholder="Calle 10 #43-25, Medellín" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label" for="emp-descripcion">Descripción de la vacante o empresa (opcional)</label>
-            <textarea class="form-textarea" id="emp-descripcion" name="descripcion" placeholder="Describe el perfil que buscas, condiciones de trabajo, beneficios…"></textarea>
-          </div>
-
-          <div class="form-error-msg" id="err-empresa">Ocurrió un error. Por favor intenta de nuevo.</div>
-
-          <button type="submit" class="form-submit" style="border-color:var(--blue);color:var(--blue);background:rgba(79,195,247,0.1);">
-            Enviar para Validación
-          </button>
-          <p class="form-hint">El NIT será validado contra la base institucional. Las vacantes publicadas serán visibles en el mapa GeoPly tras la verificación.</p>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════
-       DASHBOARD: PANEL DE DATOS
-  ══════════════════════════════════════ -->
   <div id="dashboard-overlay" class="dashboard-overlay hidden" role="dialog" aria-label="Panel de Empleo — Datos Abiertos">
     <div class="dashboard-header">
       <div class="dashboard-title">
@@ -371,8 +253,6 @@
         <div class="dash-toolbar">
           <input id="dash-search" type="text" placeholder="Buscar en este conjunto de datos…" oninput="filtrarDashboard()" />
           <div class="dash-view-toggle">
-            <button class="dash-view-btn active" data-view="charts" onclick="setDashView('charts')">📊 Gráficos</button>
-            <button class="dash-view-btn" data-view="records" onclick="setDashView('records')">📋 Registros</button>
           </div>
           <button class="map-ctrl-btn" onclick="refrescarDataset()">⟳ Actualizar</button>
           <span id="dash-estado" class="dash-estado">Selecciona un conjunto de datos</span>
@@ -381,10 +261,6 @@
       </main>
     </div>
   </div>
-
-  <!-- ═══════════════════════════════════
-       SCRIPTS
-  ══════════════════════════════════════ -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     window.__heatReady = false;
@@ -396,7 +272,6 @@
     onerror="console.warn('[GeoPly] leaflet.heat no disponible — heatmap desactivado')">
   </script>
 
-  <!-- Datos (geo-data.js define: DATASETS, EMPLEO_RECORDS, DATA_CACHE, extractGeo, loadAllDatasets) -->
   <script src="geo-data.js"></script>
   <script src="dashboard.js"></script>
   <script src="app.js" defer></script>

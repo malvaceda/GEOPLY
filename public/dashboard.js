@@ -314,11 +314,7 @@ window.setDashView = function(mode) {
 };
 
 function renderDashboardView(records, datasetId) {
-  if (dashViewMode === 'records') {
-    renderDashCards(records, datasetId);
-  } else {
-    renderDashCharts(records, datasetId);
-  }
+  renderDashCharts(records, datasetId);
 }
 
 function analyzeRecords(records) {
@@ -521,47 +517,6 @@ function buildNumericChartCard(field, records, labelField) {
       <div class="chart-bars">${bars}</div>
     </article>
   `;
-}
-
-function renderDashCards(records, datasetId) {
-  const contenedor = document.getElementById('dash-contenedor');
-  if (!contenedor) return;
-
-  if (!records.length) {
-    contenedor.innerHTML = `<div class="dash-msg dash-empty">Sin registros para mostrar con el filtro actual.</div>`;
-    return;
-  }
-
-  contenedor.innerHTML = records.map((item, i) => {
-    const geo = extractGeo(item);
-    let campos = '';
-
-    Object.entries(item).forEach(([clave, valor]) => {
-      if (clave.startsWith(':')) return;
-      let display = valor;
-      if (display && typeof display === 'object') display = JSON.stringify(display);
-      campos += `
-        <div class="dato">
-          <strong>${formatearTitulo(clave)}</strong>
-          <span>${display !== null && display !== undefined && display !== '' ? display : 'No especificado'}</span>
-        </div>
-      `;
-    });
-
-    const mapBtn = geo ? `
-      <button class="popup-action-btn dash-map-btn" onclick="verEnMapa('${datasetId}', ${i})">
-        📍 Ver ubicación en el mapa
-      </button>
-    ` : '';
-
-    return `
-      <article class="dash-card">
-        <h3>Registro ${i + 1}</h3>
-        ${campos}
-        ${mapBtn}
-      </article>
-    `;
-  }).join('');
 }
 
 function filtrarDashboard() {

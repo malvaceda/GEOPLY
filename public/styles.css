@@ -1281,10 +1281,8 @@ body {
   margin-top: 2px;
 }
 
-/* ─── UTILIDADES ─────────────────────────────────────────── */
 .hidden { display: none !important; }
 
-/* ─── RESPONSIVE ─────────────────────────────────────────── */
 @media (max-width: 900px) {
   :root { --sidebar-w: 200px; }
   .brand-sub { display: none; }
@@ -1303,4 +1301,116 @@ body {
   .stat-grid-4 { grid-template-columns: 1fr 1fr; }
   .form-row { grid-template-columns: 1fr; }
   .modal-card { margin: 0 12px; }
+}
+
+.checkmark-anim {
+  width: 64px;
+  height: 64px;
+  display: block;
+  margin: 0 auto;
+}
+
+.checkmark-circle {
+  stroke: var(--mde-neon);
+  stroke-width: 2.5;
+  stroke-dasharray: 160;
+  stroke-dashoffset: 160;
+  stroke-linecap: round;
+  animation: checkmark-draw-circle 0.55s cubic-bezier(0.6, 0, 0.4, 1) forwards;
+}
+
+.checkmark-check {
+  stroke: var(--mde-neon);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 40;
+  stroke-dashoffset: 40;
+  animation: checkmark-draw-check 0.35s cubic-bezier(0.6, 0, 0.4, 1) 0.5s forwards;
+  filter: drop-shadow(0 0 6px var(--mde-neon));
+}
+
+@keyframes checkmark-draw-circle {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes checkmark-draw-check {
+  to { stroke-dashoffset: 0; }
+}
+
+.profile-aspirante {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.profile-aspirante.hidden { display: none; }
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.profile-name {
+  font-family: var(--ff-mono);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--mde-neon);
+  text-shadow: 0 0 10px var(--mde-glow);
+}
+
+.profile-badge {
+  font-family: var(--ff-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(0,255,136,0.1);
+  border: 1px solid rgba(0,255,136,0.3);
+  color: var(--mde-neon);
+}
+
+.profile-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--b-subtle);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+
+.profile-field {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--b-white);
+  font-size: 11px;
+}
+
+.profile-field:last-child { border-bottom: none; }
+
+.profile-field-label {
+  color: var(--tx-muted);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.profile-field-value {
+  color: var(--tx-secondary);
+  text-align: right;
+  word-break: break-word;
+}
+
+.profile-edit-btn {
+  margin-top: 4px;
 }

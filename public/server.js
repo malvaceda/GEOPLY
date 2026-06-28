@@ -1,4 +1,3 @@
-// server.js
 'use strict';
 
 const express = require('express');
@@ -9,7 +8,6 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ─── Conexión a la base de datos ──────────────────────────
 const pool = mysql.createPool({
   host:            process.env.DB_HOST     || 'localhost',
   user:            process.env.DB_USER     || 'root',
@@ -19,42 +17,6 @@ const pool = mysql.createPool({
   connectionLimit: 10,
 });
 
-// ═══════════════════════════════════════════════════════════
-// ORGANIZACIONES / EMPRESAS
-// ═══════════════════════════════════════════════════════════
-
-// Registrar empresa (llamado desde modal-empresa en index.html)
-app.post('/api/registro-empresa', async (req, res) => {
-  try {
-    const { nombre, nit, sector, direccion, correo, telefono, descripcion } = req.body;
-
-    if (!nombre || !nit || !correo) {
-      return res.status(400).json({ error: 'Nombre, NIT y correo son obligatorios.' });
-    }
-
-    const [result] = await pool.query(
-      `INSERT INTO Organizacion
-         (nombre_organizacion, nit, sector_economico, direccion, correo_corporativo)
-       VALUES (?, ?, ?, ?, ?)`,
-      [nombre, nit, sector || null, direccion || null, correo]
-    );
-
-    res.json({
-      success: true,
-      id:      result.insertId,
-      message: 'Empresa registrada para validación institucional.',
-    });
-  } catch (err) {
-    // NIT duplicado
-    if (err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ error: 'Ya existe una organización con ese NIT.' });
-    }
-    console.error('[GeoPly] /api/registro-empresa:', err.message);
-    res.status(500).json({ error: 'Error interno del servidor.' });
-  }
-});
-
-// Listar organizaciones verificadas (para mostrar en el mapa)
 app.get('/api/organizaciones', async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -69,7 +31,6 @@ app.get('/api/organizaciones', async (req, res) => {
   }
 });
 
-// Verificar una organización (acción administrativa)
 app.patch('/api/organizaciones/:id/verificar', async (req, res) => {
   try {
     await pool.query('UPDATE Organizacion SET verificada = TRUE WHERE id = ?', [req.params.id]);
@@ -80,11 +41,6 @@ app.patch('/api/organizaciones/:id/verificar', async (req, res) => {
   }
 });
 
-// ═══════════════════════════════════════════════════════════
-// ASPIRANTES
-// ═══════════════════════════════════════════════════════════
-
-// Registrar aspirante (llamado desde modal-aspirante en index.html)
 app.post('/api/registro-aspirante', async (req, res) => {
   try {
     const {
@@ -126,11 +82,41 @@ app.post('/api/registro-aspirante', async (req, res) => {
   }
 });
 
-// ═══════════════════════════════════════════════════════════
-// VACANTES
-// ═══════════════════════════════════════════════════════════
+app.put('/api/registro-aspirante/:id', async (req, res) => {
+  try {
+    const {
+      nombre, correo, telefono, municipio,
+      nivel_educativo, experiencia_anios, area_interes,
+      aspiracion_salarial, descripcion,
+    } = req.body;
 
-// Listar vacantes (con datos de la organización para el mapa)
+    if (!nombre || !correo) {
+      return res.status(400).json({ error: 'Nombre y correo son obligatorios.' });
+    }
+
+    await pool.query(
+      `UPDATE Aspirante SET
+         nombre_completo = ?, correo = ?, telefono = ?, municipio = ?,
+         nivel_educativo = ?, profesion = ?, experiencia_anios = ?,
+         aspiracion_salarial = ?, habilidades = ?
+       WHERE id = ?`,
+      [
+        nombre, correo, telefono || null, municipio || null,
+        nivel_educativo || null, area_interes || null,
+        parseInt(experiencia_anios) || 0,
+        parseFloat(aspiracion_salarial) || 0,
+        descripcion || null,
+        req.params.id,
+      ]
+    );
+
+    res.json({ success: true, id: parseInt(req.params.id) });
+  } catch (err) {
+    console.error('[GeoPly] /api/registro-aspirante PUT:', err.message);
+    res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+});
+
 app.get('/api/vacantes', async (req, res) => {
   try {
     const { categoria, lat, lng, radio } = req.query;
@@ -147,7 +133,6 @@ app.get('/api/vacantes', async (req, res) => {
       params.push(categoria);
     }
 
-    // Filtro por radio (km) usando Haversine directamente en SQL
     if (lat && lng && radio) {
       sql += `
         AND (
@@ -169,47 +154,6 @@ app.get('/api/vacantes', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor.' });
   }
 });
-
-// Crear vacante (empresa autenticada)
-app.post('/api/vacantes', async (req, res) => {
-  try {
-    const {
-      organizacion_id, titulo, descripcion, salario,
-      experiencia_requerida, nivel_educativo_req,
-      tipo_contrato, categoria, latitud, longitud, sector_crecimiento,
-    } = req.body;
-
-    if (!titulo || !organizacion_id) {
-      return res.status(400).json({ error: 'Título y organización son obligatorios.' });
-    }
-
-    const [result] = await pool.query(
-      `INSERT INTO Vacante
-         (organizacion_id, titulo, descripcion, salario,
-          experiencia_requerida, nivel_educativo_req,
-          tipo_contrato, categoria, latitud, longitud, sector_crecimiento)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        organizacion_id, titulo, descripcion || null,
-        parseFloat(salario) || null,
-        parseInt(experiencia_requerida) || 0,
-        nivel_educativo_req || null, tipo_contrato || null,
-        categoria || null,
-        parseFloat(latitud) || null, parseFloat(longitud) || null,
-        parseFloat(sector_crecimiento) || null,
-      ]
-    );
-
-    res.json({ success: true, id: result.insertId });
-  } catch (err) {
-    console.error('[GeoPly] /api/vacantes POST:', err.message);
-    res.status(500).json({ error: 'Error interno del servidor.' });
-  }
-});
-
-// ═══════════════════════════════════════════════════════════
-// SERVICIOS DEL HOGAR (Sección 4.3)
-// ═══════════════════════════════════════════════════════════
 
 app.get('/api/servicios-hogar', async (req, res) => {
   try {
@@ -251,10 +195,6 @@ app.post('/api/servicios-hogar', async (req, res) => {
   }
 });
 
-// ═══════════════════════════════════════════════════════════
-// GEOPLY SCORE (Sección 3.1)
-// ═══════════════════════════════════════════════════════════
-
 app.get('/api/geoply-score/:aspiranteId/:vacanteId', async (req, res) => {
   try {
     const [[asp]] = await pool.query('SELECT * FROM Aspirante WHERE id = ?', [req.params.aspiranteId]);
@@ -265,7 +205,6 @@ app.get('/api/geoply-score/:aspiranteId/:vacanteId', async (req, res) => {
     let score = 0;
     const detalle = {};
 
-    // 1. Salario (20 pts)
     if (vac.salario && asp.aspiracion_salarial && vac.salario >= asp.aspiracion_salarial) {
       score += 20;
       detalle.salario = 20;
