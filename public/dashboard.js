@@ -70,15 +70,27 @@ async function loadAllDatasets() {
   buildEmpleoRecords();
   detectCategoryField();
 
+  try {
+    const saved = sessionStorage.getItem('geoply_categoria');
+    if (saved) STATE.selectedCategory = saved;
+  } catch(e) {}
+
   if (typeof buildCategoryChips === 'function') buildCategoryChips();
   if (typeof buildTrendInsights === 'function') buildTrendInsights();
   if (typeof buildMapLayers === 'function') buildMapLayers();
 
-  const statusEl = document.getElementById('data-status');
+const statusEl = document.getElementById('data-status');
   if (statusEl) {
     statusEl.textContent = loaded > 0
       ? `${loaded}/${DATASETS.length} conjuntos cargados · ${EMPLEO_RECORDS.length} ubicados`
       : 'No se pudo conectar con datos.gov.co';
+  }
+
+  const updateEl = document.getElementById('last-update');
+  if (updateEl) {
+    const ahora = new Date();
+    const hora  = ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+    updateEl.innerHTML = `Datos actualizados: <span>${hora}</span>`;
   }
 }
 

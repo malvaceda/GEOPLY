@@ -5,14 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GeoPly</title>
 
-  <!-- Fuentes -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
-  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-  <!-- Estilos propios -->
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -26,20 +23,18 @@
         <span class="brand-sub">Datos Abiertos</span>
       </div>
       <div class="header-status">
-        <!-- Botón aspirante -->
         <button class="dash-open-btn" onclick="abrirModal('modal-aspirante')">
           Soy Aspirante
         </button>
-        <button class="dash-open-btn" onclick="openDashboard()">
-          <span class="ai-star">✦</span> Panel de Empleo
-        </button>
+        <button class="dash-open-btn" onclick="abrirHowTo()"style="border-color:var(--purple);color:var(--purple);background:rgba(167,139,250,0.1);">¿Cómo funciona?</button>
+        <button class="dash-open-btn" onclick="openDashboard()">Panel de Empleo</button>
       </div>
     </div>
   </header>
 
   <main class="app-main">
 
-    <aside class="sidebar sidebar-left" aria-label="Panel de control">
+    <aside class="sidebar sidebar-left" id="sidebar-left" aria-label="Panel de control">
 
       <section class="panel-block">
         <h2 class="block-title">CATEGORÍA DE EMPLEO</h2>
@@ -62,8 +57,9 @@
             </div>
           </div>
           <div id="opp-bars" class="opp-bars">
-            <p class="hint">Consultando APIs de datos.gov.co…</p>
+            <p class="hint">Consultando APIs…</p>
           </div>
+          <div id="last-update" class="last-update">Consultando datos…</div>
         </div>
       </section>
 
@@ -76,8 +72,24 @@
       </section>
     </aside>
 
+    
+
     <div class="map-wrap">
       <div id="map" role="application" aria-label="Mapa de oportunidades de empleo en Colombia"></div>
+        <button id="toggle-left" class="sidebar-toggle-btn sidebar-toggle-left"
+          onclick="toggleSidebar('left')" title="Ocultar panel izquierdo" aria-label="Colapsar panel izquierdo">
+          <svg width="10" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
+
+        <button id="toggle-right" class="sidebar-toggle-btn sidebar-toggle-right panel-hidden"  onclick="toggleSidebar('right')" title="Ocultar panel derecho" aria-label="Colapsar panel derecho">
+          <svg width="10" height="14" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </button>
 
       <div class="map-controls">
         <button class="map-ctrl-btn" onclick="resetView()" title="Centrar mapa">
@@ -102,9 +114,8 @@
       </div>
     </div>
 
-    <aside class="sidebar sidebar-right" aria-label="Detalle del registro">
-      <!-- Estado vacío -->
-      <div id="detail-empty" class="detail-empty">
+    <aside class="sidebar sidebar-right hidden" id="sidebar-right" aria-label="Detalle del registro">
+      <div id="detail-empty" class="detail-empty hidden">
         <img src="explorar.png" class="empty-icon-img" alt="Explorar mapa"
              onerror="this.style.display='none'" />
         <p>Selecciona un <strong>punto de empleo</strong> en el mapa para ver su detalle</p>
@@ -117,9 +128,7 @@
         <img src="explorar.png" class="empty-icon-img" alt="Explorar mapa"
              style="opacity:0.3;filter:grayscale(1);" onerror="this.style.display='none'" />
         <p style="color:var(--tx-muted)">El análisis de tendencias está <strong style="color:#ff5252">desactivado</strong></p>
-        <button id="ai-toggle-btn-disabled" class="ai-toggle-btn ai-toggle-off" onclick="toggleAI()">
-          Activar tendencias
-        </button>
+        <button id="ai-toggle-btn-disabled" class="ai-toggle-btn ai-toggle-off" onclick="toggleAI()">Activar tendencias</button>
       </div>
 
       <div id="record-detail" class="commune-detail hidden">
@@ -141,7 +150,7 @@
   <div id="modal-aspirante" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Registro de Aspirante">
     <div class="modal-card">
       <div class="modal-header">
-        <span class="modal-title">✦ REGISTRO DE ASPIRANTE</span>
+        <span class="modal-title">REGISTRO DE ASPIRANTE</span>
         <button class="modal-close" onclick="cerrarModales()" aria-label="Cerrar">✕</button>
       </div>
       <div class="modal-body">
@@ -243,7 +252,7 @@
   <div id="dashboard-overlay" class="dashboard-overlay hidden" role="dialog" aria-label="Panel de Empleo — Datos Abiertos">
     <div class="dashboard-header">
       <div class="dashboard-title">
-        <span class="ai-star">✦</span> Panel de Empleo · Datos Abiertos Colombia
+        <span class="ai-star"></span> Panel de Empleo · Datos Abiertos Colombia
       </div>
       <button class="dash-close-btn" onclick="closeDashboard()" aria-label="Cerrar panel">✕</button>
     </div>
@@ -271,6 +280,48 @@
     onload="window.__heatReady=true;"
     onerror="console.warn('[GeoPly] leaflet.heat no disponible — heatmap desactivado')">
   </script>
+
+  <div id="modal-howto" class="howto-overlay hidden" role="dialog" aria-modal="true">
+    <div class="howto-card">
+      <div class="howto-header">
+        <span class="howto-title">Tutorial</span>
+        <button class="howto-close" onclick="cerrarHowTo()" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="howto-steps">
+        <div class="howto-step">
+          <div class="howto-step-num">1</div>
+          <div class="howto-step-body">
+            <div class="howto-step-title">Explora el mapa</div>
+            <div class="howto-step-desc">Cada punto representa una oportunidad laboral o dato de empleo proveniente de los datos abiertos de Colombia. Usa los filtros de categoría para enfocarte en el sector que te interesa.</div>
+          </div>
+        </div>
+        <div class="howto-step">
+          <div class="howto-step-num">2</div>
+          <div class="howto-step-body">
+            <div class="howto-step-title">Selecciona una oportunidad</div>
+            <div class="howto-step-desc">Haz clic en cualquier marcador para ver el detalle completo del registro: sector, indicadores, ubicación y el análisis de tendencias detectadas por GeoPly.</div>
+          </div>
+        </div>
+        <div class="howto-step">
+          <div class="howto-step-num">3</div>
+          <div class="howto-step-body">
+            <div class="howto-step-title">Regístrate</div>
+            <div class="howto-step-desc">Si eres aspirante, crea tu perfil para que GeoPly calcule tu compatibilidad con las vacantes.</div>
+          </div>
+        </div>
+        <div class="howto-step">
+          <div class="howto-step-num">4</div>
+          <div class="howto-step-body">
+            <div class="howto-step-title">Analiza con el Panel de Empleo</div>
+            <div class="howto-step-desc">Accede al panel completo para explorar gráficos, tendencias por sector y estadísticas de los 11 conjuntos de datos abiertos consultados en tiempo real.</div>
+          </div>
+        </div>
+      </div>
+      <div class="howto-footer">
+        <button class="howto-btn" onclick="cerrarHowTo()">Entendido, explorar →</button>
+      </div>
+    </div>
+  </div>
 
   <script src="geo-data.js"></script>
   <script src="dashboard.js"></script>

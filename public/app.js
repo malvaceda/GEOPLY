@@ -20,9 +20,10 @@ const STATE = {
   aiEnabled:        true,
 };
 
-let MAP         = null;
-let markerLayer = null;
-let heatLayer   = null;
+let MAP           = null;
+let markerLayer   = null;
+let heatLayer     = null;
+let activeMarker  = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   try {
@@ -59,6 +60,19 @@ function initMap() {
   }).addTo(MAP);
 
   markerLayer = L.layerGroup().addTo(MAP);
+  MAP.on('click', function () {
+    const sidebarRight = document.getElementById('sidebar-right');
+    const toggleRight  = document.getElementById('toggle-right');
+    if (sidebarRight && !sidebarRight.classList.contains('hidden')) {
+      sidebarRight.classList.add('hidden');
+      if (toggleRight) toggleRight.classList.add('panel-hidden');
+      document.getElementById('detail-empty')?.classList.remove('hidden');
+      document.getElementById('record-detail')?.classList.add('hidden');
+      document.getElementById('detail-disabled')?.classList.add('hidden');
+      STATE.selectedRecord = null;
+      setTimeout(() => { if (MAP) MAP.invalidateSize({ animate: false }); }, 320);
+    }
+  });
 
   const loaderTimer = setTimeout(hideLoader, 900);
   MAP.once('load', () => { clearTimeout(loaderTimer); hideLoader(); });
@@ -140,7 +154,12 @@ function renderMarkers(data) {
       });
     } catch (e) { return; }
     marker.bindPopup(buildEmpleoPopup(item));
-    marker.on('click', () => onMarkerClick(item));
+    marker.bindTooltip(buildTooltipContent(item), {
+      direction: 'top',
+      offset: [0, -6],
+      className: 'geoply-tooltip',
+    });
+    marker.on('click', () => onMarkerClick(item, marker));
     marker.addTo(markerLayer);
   });
 }
@@ -159,6 +178,16 @@ function renderHeat(data) {
   } catch (e) {
     console.warn('[GeoPly] heatLayer error:', e);
   }
+}
+
+function buildTooltipContent(item) {
+  const categoria = STATE.categoryField ? item.record[STATE.categoryField] : null;
+  const color = colorForItem(item);
+  return `<div class="geoply-tooltip-inner">
+    <span class="geoply-tooltip-dot" style="background:${color}"></span>
+    <span class="geoply-tooltip-name">${item.datasetName}</span>
+    ${categoria ? `<span class="geoply-tooltip-cat">${categoria}</span>` : ''}
+  </div>`;
 }
 
 function buildEmpleoPopup(item) {
@@ -188,10 +217,25 @@ window.onMarkerClickById = function (datasetId, index) {
   if (item) onMarkerClick(item);
 };
 
-function onMarkerClick(item) {
+function onMarkerClick(item, marker = null) {
   if (!STATE.aiEnabled) return;
   STATE.selectedRecord = { datasetId: item.datasetId, index: item.index };
-  openRecordDetail(item.datasetId, item.index);
+  const sidebarRight = document.getElementById('sidebar-right');
+  const toggleRight  = document.getElementById('toggle-right');
+  if (sidebarRight) {
+    sidebarRight.classList.remove('hidden', 'collapsed');
+  }
+  if (toggleRight) {
+    toggleRight.classList.remove('panel-hidden', 'is-collapsed');
+  }
+  setTimeout(() => { if (MAP) MAP.invalidateSize({ animate: false }); }, 320);
+  if (activeMarker) {
+    activeMarker.getElement()?.classList.remove('marker-active');
+  }
+  activeMarker = marker;
+  marker.getElement()?.classList.add('marker-active');
+  mostrarSkeletonDetalle();
+  setTimeout(() => openRecordDetail(item.datasetId, item.index), 180);
 }
 
 function buildCategoryChips() {
@@ -219,6 +263,7 @@ function buildCategoryChips() {
 
 window.setCategory = function (val) {
   STATE.selectedCategory = val;
+  try { sessionStorage.setItem('geoply_categoria', val); } catch(e) {}
   buildCategoryChips();
   buildMapLayers();
 };
@@ -315,9 +360,26 @@ window.toggleAI = function () {
   }
 };
 
-/* ═══════════════════════════════════════════════════════════
-   DETALLE DE REGISTRO (sidebar derecho)
-═══════════════════════════════════════════════════════════ */
+function mostrarSkeletonDetalle() {
+  document.getElementById('detail-empty')?.classList.add('hidden');
+  document.getElementById('detail-disabled')?.classList.add('hidden');
+  const detailEl = document.getElementById('record-detail');
+  if (detailEl) {
+    detailEl.classList.remove('hidden');
+    detailEl.innerHTML = `
+      <div class="detail-skeleton">
+        <div class="skel-line skel-title"></div>
+        <div class="skel-line skel-badge"></div>
+        <div class="skel-line skel-box"></div>
+        <div class="skel-line skel-full"></div>
+        <div class="skel-line skel-medium"></div>
+        <div class="skel-line skel-short"></div>
+        <div class="skel-line skel-full"></div>
+        <div class="skel-line skel-medium"></div>
+      </div>`;
+  }
+}
+
 function openRecordDetail(datasetId, index) {
   const ds     = DATASETS.find(d => d.id === datasetId);
   const record = (DATA_CACHE[datasetId] || [])[index];
@@ -351,7 +413,14 @@ function openRecordDetail(datasetId, index) {
     const metrics = [];
     const geo = extractGeo(record);
     if (geo) {
-      metrics.push({ lbl: 'UBICACIÓN', val: `${geo.lat.toFixed(2)}, ${geo.lng.toFixed(2)}`, sub: geo.approx ? 'aproximada' : 'exacta', color: '#4fc3f7' });
+      const coordStr = `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}`;
+      metrics.push({
+        lbl: 'UBICACIÓN',
+        val: `${geo.lat.toFixed(2)}, ${geo.lng.toFixed(2)}
+          <button class="coord-copy-btn" title="Copiar coordenadas" onclick="copiarCoordenadas('${coordStr}', this)">📋</button>`,
+        sub: geo.approx ? 'aproximada' : 'exacta',
+        color: '#4fc3f7'
+    });
     }
     numericEntries.slice(0, 5).forEach(([k, v]) => {
       metrics.push({ lbl: formatearTitulo(k).toUpperCase(), val: v, sub: 'valor numérico', color: '#00ff88' });
@@ -410,7 +479,6 @@ window.cerrarModales = function () {
   if (modal) modal.classList.add('hidden');
   document.body.style.overflow = '';
 
-  // Resetear estado del modal
   const succEl  = document.getElementById('success-aspirante');
   const profileEl = document.getElementById('profile-aspirante');
   const form    = document.getElementById('form-aspirante');
@@ -723,9 +791,6 @@ function renderCharts(filtered, all, ds) {
   return charts;
 }
 
-/* ═══════════════════════════════════════════════════════════
-   HELPER
-═══════════════════════════════════════════════════════════ */
 function formatearTitulo(str) {
   if (!str) return '';
   return str
@@ -734,3 +799,49 @@ function formatearTitulo(str) {
     .toLowerCase()
     .replace(/^\w/, c => c.toUpperCase());
 }
+
+window.toggleSidebar = function (side) {
+  const sidebar = document.getElementById(`sidebar-${side}`);
+  const btn     = document.getElementById(`toggle-${side}`);
+  if (!sidebar || !btn) return;
+
+  if (side === 'right') {
+    const isNowHidden = sidebar.classList.toggle('hidden');
+    btn.classList.toggle('is-collapsed', isNowHidden);
+    btn.title = isNowHidden
+      ? 'Mostrar panel derecho'
+      : 'Ocultar panel derecho';
+  } else {
+    const isNowCollapsed = sidebar.classList.toggle('collapsed');
+    btn.classList.toggle('is-collapsed', isNowCollapsed);
+    btn.title = isNowCollapsed
+      ? 'Expandir panel izquierdo'
+      : 'Ocultar panel izquierdo';
+  }
+
+  setTimeout(() => { if (MAP) MAP.invalidateSize({ animate: false }); }, 320);
+};
+
+window.copiarCoordenadas = function (texto, btn) {
+  navigator.clipboard.writeText(texto).then(() => {
+    btn.textContent = '✔';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋'; btn.classList.remove('copied'); }, 1800);
+  }).catch(() => {
+    btn.textContent = '✘';
+    setTimeout(() => { btn.textContent = '📋'; }, 1800);
+  });
+};
+
+window.abrirHowTo = function () {
+  document.getElementById('modal-howto')?.classList.remove('hidden');
+};
+
+window.cerrarHowTo = function () {
+  document.getElementById('modal-howto')?.classList.add('hidden');
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('modal-howto');
+  if (el) el.addEventListener('click', e => { if (e.target === el) cerrarHowTo(); });
+});

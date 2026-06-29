@@ -10,10 +10,8 @@ function normalizeKey(str) {
     .trim();
 }
 
-// [lat, lng] — capitales de departamento + municipios de Antioquia
-// relevantes para el reto (formato [latitud, longitud])
 const COL_COORDS = Object.freeze({
-  // ── Antioquia / Medellín y área metropolitana ──
+
   'medellin':            [6.2476, -75.5658],
   'bello':               [6.3373, -75.5580],
   'itagui':              [6.1719, -75.6122],
@@ -26,7 +24,6 @@ const COL_COORDS = Object.freeze({
   'antioquia':           [6.5500, -75.8300],
   'rionegro':            [6.1551, -75.3753],
 
-  // ── Capitales de departamento (Colombia) ──
   'bogota':              [4.7110, -74.0721],
   'bogota d c':          [4.7110, -74.0721],
   'cundinamarca':        [4.8000, -74.1000],
