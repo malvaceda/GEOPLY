@@ -164,20 +164,64 @@ body {
 }
 
 /* ─── LAYOUT ─────────────────────────────────────────────── */
-.app-main { display:flex; flex:1; min-height:0; overflow:hidden; }
+.app-main { display:flex; flex:1; min-height:0; overflow:hidden; position: relative; }
 
 .sidebar {
   width: var(--sidebar-w);
   flex-shrink: 0;
+  min-width: 0;
   background: var(--bg-surface);
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
+  transition: width 0.3s var(--ease), opacity 0.25s var(--ease);
+}
+
+.sidebar.collapsed {
+  width: 0 !important;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .sidebar-left  { border-right: 1px solid var(--b-subtle); }
 .sidebar-right { border-left:  1px solid var(--b-subtle); }
+
+/* ─── PESTAÑAS DE PLEGAR/DESPLEGAR SIDEBAR ──────────────── */
+.sidebar-toggle {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1500;
+  width: 22px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--b-mid);
+  color: var(--mde-neon);
+  cursor: pointer;
+  font-size: 13px;
+  font-family: var(--ff-body);
+  transition: left 0.3s var(--ease), right 0.3s var(--ease), background var(--fast);
+}
+
+.sidebar-toggle:hover { background: var(--bg-hover); box-shadow: 0 0 10px rgba(0,255,136,0.2); }
+
+.sidebar-toggle-left {
+  left: var(--sidebar-w);
+  border-radius: 0 8px 8px 0;
+  border-left: none;
+}
+.sidebar-toggle-left.closed { left: 0; }
+
+.sidebar-toggle-right {
+  right: var(--sidebar-w);
+  border-radius: 8px 0 0 8px;
+  border-right: none;
+}
+.sidebar-toggle-right.closed { right: 0; }
 
 .panel-block {
   padding: 13px 13px 12px;
@@ -410,7 +454,6 @@ body {
 .ai-badge.media { background:rgba(240,192,64,0.1); color:var(--gold); }
 .ai-badge.baja  { background:rgba(255,82,82,0.1);  color:var(--red); }
 
-/* Categorías de empleo */
 .ai-badge.formal { background: rgba(0, 255, 136, 0.1); color: var(--mde-neon); }
 .ai-badge.joven  { background: rgba(79, 195, 247, 0.1); color: var(--blue); }
 .ai-badge.hogar  { background: rgba(240, 192, 64, 0.1); color: var(--gold); }
@@ -702,7 +745,6 @@ body {
 .reasoning-step:last-child { border-bottom: none; }
 .reasoning-step strong { color: var(--tx-primary); }
 
-/* ─── VERIFICADA BADGE ───────────────────────────────────── */
 .verificada-badge {
   display: inline-block;
   padding: 2px 6px;
@@ -1087,7 +1129,7 @@ body {
   flex-shrink: 0;
 }
 
-/* ─── MODAL ASPIRANTE / EMPRESA ──────────────────────────── */
+/* ─── MODAL ASPIRANTE ────────────────────────────────────── */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1249,7 +1291,6 @@ body {
 
 .form-error-msg.visible { display: block; }
 
-/* ─── GEOPLY SCORE SIMULADO ──────────────────────────────── */
 .score-preview {
   background: var(--bg-card);
   border: 1px solid var(--b-subtle);
@@ -1292,6 +1333,7 @@ body {
 
 @media (max-width: 640px) {
   .sidebar-right { display: none; }
+  .sidebar-toggle-right { display: none; }
   :root { --sidebar-w: 220px; }
   .dashboard-body { flex-direction: column; }
   .dashboard-sidebar { width: 100%; max-height: 160px; flex-direction: row; flex-wrap: wrap; }

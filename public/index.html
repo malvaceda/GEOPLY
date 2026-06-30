@@ -29,8 +29,7 @@
         <button class="dash-open-btn" onclick="abrirModal('modal-aspirante')">
           Soy Aspirante
         </button>
-        <button class="dash-open-btn" onclick="openDashboard()">
-          <span class="ai-star">✦</span> Panel de Empleo
+        <button class="dash-open-btn" onclick="openDashboard()">Panel de Empleo
         </button>
         <div id="perf-badge" class="perf-badge" title="Tiempo de carga inicial"></div>
       </div>
@@ -39,27 +38,12 @@
 
   <main class="app-main">
 
-    <aside class="sidebar sidebar-left" aria-label="Panel de control">
+    <button class="sidebar-toggle sidebar-toggle-left closed" id="toggle-left"
+            onclick="toggleSidebar('left')" aria-label="Mostrar panel de control">›</button>
+    <button class="sidebar-toggle sidebar-toggle-right closed" id="toggle-right"
+            onclick="toggleSidebar('right')" aria-label="Mostrar panel de detalle">‹</button>
 
-      <section class="panel-block">
-        <h2 class="block-title">CAPAS</h2>
-        <div class="layer-list" id="layer-list">
-          <div class="layer-row" onclick="toggleLayer('oportunidad')">
-            <span class="layer-dot" aria-hidden="true"></span>
-            <span class="layer-label on" id="layer-label-oportunidad">Mapa de oportunidades</span>
-            <div class="toggle on" id="toggle-oportunidad" role="switch" aria-checked="true">
-              <div class="toggle-knob on"></div>
-            </div>
-          </div>
-          <div class="layer-row" onclick="toggleLayer('departamentos')">
-            <span class="layer-dot" aria-hidden="true" style="background:#4fc3f7;box-shadow:0 0 6px rgba(79,195,247,0.5);"></span>
-            <span class="layer-label on" id="layer-label-departamentos">Departamentos (DANE)</span>
-            <div class="toggle on" id="toggle-departamentos" role="switch" aria-checked="true">
-              <div class="toggle-knob on"></div>
-            </div>
-          </div>
-        </div>
-      </section>
+    <aside class="sidebar sidebar-left collapsed" aria-label="Panel de control">
 
       <section class="panel-block">
         <h2 class="block-title">CATEGORÍA DE EMPLEO</h2>
@@ -134,7 +118,7 @@
       </div>
     </div>
 
-    <aside class="sidebar sidebar-right" aria-label="Detalle del registro">
+    <aside class="sidebar sidebar-right collapsed" aria-label="Detalle del registro">
       <div id="detail-empty" class="detail-empty">
         <img src="explorar.png" class="empty-icon-img" alt="Explorar mapa"
              onerror="this.style.display='none'" />
@@ -301,7 +285,7 @@
     onerror="console.warn('[GeoPly] leaflet.heat no disponible — heatmap desactivado')">
   </script>
 
-  <!-- Datos departamentales DANE/GEIH (módulo nuevo, aditivo) -->
+  <!-- Datos departamentales DANE/GEIH (módulo aditivo) -->
   <script src="departamentos-data.js"></script>
 
   <script src="geo-data.js"></script>

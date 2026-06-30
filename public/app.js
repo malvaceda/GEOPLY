@@ -18,6 +18,8 @@ const STATE = {
   selectedRecord:   null,
   legendOpen:       false,
   aiEnabled:        true,
+  sidebarLeftOpen:  false,
+  sidebarRightOpen: false,
 };
 
 let MAP         = null;
@@ -30,17 +32,13 @@ document.addEventListener('DOMContentLoaded', () => {
     initMap();
     updateAIToggleUI();
     loadAllDatasets();
-    setInterval(refreshLastSyncLabel, 30000); // refresca "hace X min" cada 30s
+    setInterval(refreshLastSyncLabel, 30000);
   } catch (err) {
     console.error('[GeoPly] Init error:', err);
     showError();
   }
 });
 
-/**
- * Actualiza únicamente el texto de "Última sincronización" en el
- * panel de resumen, sin re-renderizar el resto de las barras.
- */
 function refreshLastSyncLabel() {
   if (typeof LAST_API_SYNC === 'undefined' || !LAST_API_SYNC) return;
   const valEl = document.querySelector('#opp-bars .bar-row:last-child .bar-val');
@@ -82,8 +80,6 @@ function initMap() {
   setTimeout(() => { if (MAP) MAP.invalidateSize({ animate: false }); }, 120);
   MAP.once('load', stampPerf);
 
-  // Pinta los departamentos en cuanto el mapa está listo, de forma
-  // independiente de la carga de los datasets de datos.gov.co.
   renderDepartamentos();
 }
 
@@ -110,6 +106,34 @@ window.flyTo = function (lat, lng, zoom = 12) {
   if (MAP && typeof lat === 'number' && typeof lng === 'number')
     MAP.flyTo([lat, lng], zoom, { duration: 0.8 });
 };
+
+/* ═══════════════════════════════════════════════════════════
+   SIDEBARS: plegar / desplegar
+═══════════════════════════════════════════════════════════ */
+function setSidebarState(side, open) {
+  const sidebarEl = document.querySelector(side === 'left' ? '.sidebar-left' : '.sidebar-right');
+  const toggleEl  = document.getElementById(side === 'left' ? 'toggle-left' : 'toggle-right');
+  if (!sidebarEl || !toggleEl) return;
+
+  sidebarEl.classList.toggle('collapsed', !open);
+  toggleEl.classList.toggle('closed', !open);
+
+  toggleEl.textContent = side === 'left'
+    ? (open ? '‹' : '›')
+    : (open ? '›' : '‹');
+
+  STATE[side === 'left' ? 'sidebarLeftOpen' : 'sidebarRightOpen'] = open;
+}
+
+window.toggleSidebar = function (side) {
+  const key = side === 'left' ? 'sidebarLeftOpen' : 'sidebarRightOpen';
+  setSidebarState(side, !STATE[key]);
+};
+
+function showBothSidebars() {
+  setSidebarState('left', true);
+  setSidebarState('right', true);
+}
 
 function categoryColor(value) {
   if (!value || !STATE.categories.length) return CATEGORY_COLORS[CATEGORY_COLORS.length - 1];
@@ -211,6 +235,7 @@ window.onMarkerClickById = function (datasetId, index) {
 function onMarkerClick(item) {
   if (!STATE.aiEnabled) return;
   STATE.selectedRecord = { datasetId: item.datasetId, index: item.index };
+  showBothSidebars();
   openRecordDetail(item.datasetId, item.index);
 }
 
@@ -243,12 +268,6 @@ window.setCategory = function (val) {
   buildMapLayers();
 };
 
-/* ═══════════════════════════════════════════════════════════
-   DEPARTAMENTOS DE COLOMBIA (DANE/GEIH) — capa adicional
-   Datos provistos por departamentos-data.js. Esta función es
-   tolerante: si ese script no está cargado, no hace nada y el
-   resto de GeoPly sigue funcionando exactamente igual.
-═══════════════════════════════════════════════════════════ */
 function deptColor(td) {
   if (td <= 8)   return '#00ff88';
   if (td <= 10.5) return '#ffd700';
@@ -300,6 +319,7 @@ function renderDepartamentos() {
 
 function onDeptClick(d) {
   if (!STATE.aiEnabled) return;
+  showBothSidebars();
   openDeptDetail(d);
 }
 
@@ -399,17 +419,12 @@ function updateSummary(loaded, total) {
   if (num) { num.textContent = Math.round(pct); num.style.color = color; }
 
   const totalRecords = DATASETS.reduce((acc, ds) => acc + (DATA_CACHE[ds.id] || []).length, 0);
-  const geoPct = totalRecords > 0 ? Math.min(100, (EMPLEO_RECORDS.length / totalRecords) * 100) : 0;
-  const catPct = STATE.categories && STATE.categories.length
-    ? Math.min(100, (STATE.categories.length / 12) * 100) : 0;
 
   const bars = [
     { name: 'Datasets cargados',  val: pct,    display: `${loaded}/${total}`, color: '#00ff88' },
     { name: 'Total registros',    val: totalRecords > 0 ? 100 : 0, display: `${totalRecords}`, color: '#a78bfa' },
   ];
 
-  // ── INTEGRACIÓN ADITIVA: añade una barra con los 23 departamentos
-  // si departamentos-data.js está cargado.
   if (typeof DEPARTAMENTOS_EMPLEO !== 'undefined') {
     bars.push({
       name: 'Deptos. DANE/GEIH',
@@ -419,7 +434,6 @@ function updateSummary(loaded, total) {
     });
   }
 
-  // ── Última actualización de los enlaces de las APIs ──────────
   if (typeof LAST_API_SYNC !== 'undefined' && LAST_API_SYNC) {
     bars.push({
       name: 'Última sincronización',
@@ -439,11 +453,6 @@ function updateSummary(loaded, total) {
     </div>`).join('');
 }
 
-/**
- * Formatea la fecha del último fetch exitoso a las APIs de
- * datos.gov.co de forma relativa y compacta: "ahora", "hace 3 min",
- * "hace 2 h", o la hora exacta (HH:MM) si fue hace más de un día.
- */
 function formatLastSync(date) {
   if (!(date instanceof Date) || isNaN(date)) return '–';
   const diffMs = Date.now() - date.getTime();
@@ -467,9 +476,6 @@ function buildTrendInsights() {
 
   let html = '';
 
-  // ── INTEGRACIÓN ADITIVA: tarjeta fija con tendencias nacionales
-  // reales (DANE/GEIH), siempre antes de las tarjetas dinámicas
-  // detectadas a partir de los datasets de datos.gov.co.
   if (typeof NATIONAL_TRENDS !== 'undefined') {
     const nt = NATIONAL_TRENDS;
     html += `
@@ -555,9 +561,6 @@ window.toggleAI = function () {
   }
 };
 
-/* ═══════════════════════════════════════════════════════════
-   DETALLE DE REGISTRO (sidebar derecho)
-═══════════════════════════════════════════════════════════ */
 function openRecordDetail(datasetId, index) {
   const ds     = DATASETS.find(d => d.id === datasetId);
   const record = (DATA_CACHE[datasetId] || [])[index];
@@ -771,7 +774,6 @@ window.registrarAspirante = async function (e) {
     if (result.success) {
       localStorage.setItem('geoply_aspirante',
         JSON.stringify({ ...data, id: result.id || saved?.id }));
-      form.style.display = '';
       delete form.dataset.editMode;
       btn.textContent = 'Registrarme en GeoPly';
       form.style.display = 'none';
@@ -792,15 +794,11 @@ window.registrarAspirante = async function (e) {
   }
 };
 
-/* ═══════════════════════════════════════════════════════════
-   CAPAS (toggle): añade "departamentos" sin afectar "oportunidad"
-═══════════════════════════════════════════════════════════ */
 window.toggleLayer = function (key) {
   if (!(key in STATE.layers)) return;
   STATE.layers[key] = !STATE.layers[key];
   const isOn = STATE.layers[key];
 
-  // Actualiza visualmente el switch y la etiqueta correspondientes
   const toggleEl = document.getElementById(`toggle-${key}`);
   const labelEl  = document.getElementById(`layer-label-${key}`);
   if (toggleEl) {
