@@ -10,7 +10,7 @@ const CATEGORY_COLORS = [
 ];
 
 const STATE = {
-  layers:           { oportunidad: true },
+  layers:           { oportunidad: true, departamentos: true },
   selectedCategory: 'all',
   categoryField:    null,
   categories:       [],
@@ -20,21 +20,35 @@ const STATE = {
   aiEnabled:        true,
 };
 
-let MAP           = null;
-let markerLayer   = null;
-let heatLayer     = null;
-let activeMarker  = null;
+let MAP         = null;
+let markerLayer = null;
+let heatLayer   = null;
+let deptLayer   = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   try {
     initMap();
     updateAIToggleUI();
     loadAllDatasets();
+    setInterval(refreshLastSyncLabel, 30000); // refresca "hace X min" cada 30s
   } catch (err) {
     console.error('[GeoPly] Init error:', err);
     showError();
   }
 });
+
+/**
+ * Actualiza únicamente el texto de "Última sincronización" en el
+ * panel de resumen, sin re-renderizar el resto de las barras.
+ */
+function refreshLastSyncLabel() {
+  if (typeof LAST_API_SYNC === 'undefined' || !LAST_API_SYNC) return;
+  const valEl = document.querySelector('#opp-bars .bar-row:last-child .bar-val');
+  const rowNameEl = document.querySelector('#opp-bars .bar-row:last-child .bar-name');
+  if (valEl && rowNameEl && rowNameEl.textContent === 'Última sincronización') {
+    valEl.textContent = formatLastSync(LAST_API_SYNC);
+  }
+}
 
 function showError() {
   const loading = document.getElementById('map-loading');
@@ -60,25 +74,17 @@ function initMap() {
   }).addTo(MAP);
 
   markerLayer = L.layerGroup().addTo(MAP);
-  MAP.on('click', function () {
-    const sidebarRight = document.getElementById('sidebar-right');
-    const toggleRight  = document.getElementById('toggle-right');
-    if (sidebarRight && !sidebarRight.classList.contains('hidden')) {
-      sidebarRight.classList.add('hidden');
-      if (toggleRight) toggleRight.classList.add('panel-hidden');
-      document.getElementById('detail-empty')?.classList.remove('hidden');
-      document.getElementById('record-detail')?.classList.add('hidden');
-      document.getElementById('detail-disabled')?.classList.add('hidden');
-      STATE.selectedRecord = null;
-      setTimeout(() => { if (MAP) MAP.invalidateSize({ animate: false }); }, 320);
-    }
-  });
+  deptLayer   = L.layerGroup().addTo(MAP);
 
   const loaderTimer = setTimeout(hideLoader, 900);
   MAP.once('load', () => { clearTimeout(loaderTimer); hideLoader(); });
 
   setTimeout(() => { if (MAP) MAP.invalidateSize({ animate: false }); }, 120);
   MAP.once('load', stampPerf);
+
+  // Pinta los departamentos en cuanto el mapa está listo, de forma
+  // independiente de la carga de los datasets de datos.gov.co.
+  renderDepartamentos();
 }
 
 function hideLoader() {
@@ -154,12 +160,7 @@ function renderMarkers(data) {
       });
     } catch (e) { return; }
     marker.bindPopup(buildEmpleoPopup(item));
-    marker.bindTooltip(buildTooltipContent(item), {
-      direction: 'top',
-      offset: [0, -6],
-      className: 'geoply-tooltip',
-    });
-    marker.on('click', () => onMarkerClick(item, marker));
+    marker.on('click', () => onMarkerClick(item));
     marker.addTo(markerLayer);
   });
 }
@@ -178,16 +179,6 @@ function renderHeat(data) {
   } catch (e) {
     console.warn('[GeoPly] heatLayer error:', e);
   }
-}
-
-function buildTooltipContent(item) {
-  const categoria = STATE.categoryField ? item.record[STATE.categoryField] : null;
-  const color = colorForItem(item);
-  return `<div class="geoply-tooltip-inner">
-    <span class="geoply-tooltip-dot" style="background:${color}"></span>
-    <span class="geoply-tooltip-name">${item.datasetName}</span>
-    ${categoria ? `<span class="geoply-tooltip-cat">${categoria}</span>` : ''}
-  </div>`;
 }
 
 function buildEmpleoPopup(item) {
@@ -217,25 +208,10 @@ window.onMarkerClickById = function (datasetId, index) {
   if (item) onMarkerClick(item);
 };
 
-function onMarkerClick(item, marker = null) {
+function onMarkerClick(item) {
   if (!STATE.aiEnabled) return;
   STATE.selectedRecord = { datasetId: item.datasetId, index: item.index };
-  const sidebarRight = document.getElementById('sidebar-right');
-  const toggleRight  = document.getElementById('toggle-right');
-  if (sidebarRight) {
-    sidebarRight.classList.remove('hidden', 'collapsed');
-  }
-  if (toggleRight) {
-    toggleRight.classList.remove('panel-hidden', 'is-collapsed');
-  }
-  setTimeout(() => { if (MAP) MAP.invalidateSize({ animate: false }); }, 320);
-  if (activeMarker) {
-    activeMarker.getElement()?.classList.remove('marker-active');
-  }
-  activeMarker = marker;
-  marker.getElement()?.classList.add('marker-active');
-  mostrarSkeletonDetalle();
-  setTimeout(() => openRecordDetail(item.datasetId, item.index), 180);
+  openRecordDetail(item.datasetId, item.index);
 }
 
 function buildCategoryChips() {
@@ -263,10 +239,151 @@ function buildCategoryChips() {
 
 window.setCategory = function (val) {
   STATE.selectedCategory = val;
-  try { sessionStorage.setItem('geoply_categoria', val); } catch(e) {}
   buildCategoryChips();
   buildMapLayers();
 };
+
+/* ═══════════════════════════════════════════════════════════
+   DEPARTAMENTOS DE COLOMBIA (DANE/GEIH) — capa adicional
+   Datos provistos por departamentos-data.js. Esta función es
+   tolerante: si ese script no está cargado, no hace nada y el
+   resto de GeoPly sigue funcionando exactamente igual.
+═══════════════════════════════════════════════════════════ */
+function deptColor(td) {
+  if (td <= 8)   return '#00ff88';
+  if (td <= 10.5) return '#ffd700';
+  return '#ff5252';
+}
+
+function renderDepartamentos() {
+  if (typeof DEPARTAMENTOS_EMPLEO === 'undefined' || !deptLayer) return;
+  deptLayer.clearLayers();
+  if (!STATE.layers.departamentos) return;
+
+  DEPARTAMENTOS_EMPLEO.forEach(d => {
+    const color = deptColor(d.td);
+    let marker;
+    try {
+      marker = L.circleMarker([d.lat, d.lng], {
+        radius: 8,
+        fillColor: color,
+        fillOpacity: 0.8,
+        color: 'rgba(255,255,255,0.35)',
+        weight: 1.4,
+      });
+    } catch (e) { return; }
+
+    const tendencia = (typeof d.td_2018 === 'number')
+      ? (d.td < d.td_2018
+          ? `📉 Bajó desde ${d.td_2018}% en 2018`
+          : `📈 Subió desde ${d.td_2018}% en 2018`)
+      : '';
+
+    marker.bindPopup(`
+      <div class="popup-body">
+        <div class="popup-name">${d.nombre}</div>
+        <div class="popup-meta">Departamento · DANE GEIH 2025</div>
+        <div class="popup-growth"><strong>Desocupación (TD):</strong> ${d.td}%</div>
+        <div class="popup-growth"><strong>Ocupación (TO):</strong> ${d.to}%</div>
+        <div class="popup-growth"><strong>Participación (TGP):</strong> ${d.tgp}%</div>
+        <div class="popup-growth"><strong>Subocupación (TS):</strong> ${d.ts}%</div>
+        <div class="popup-growth"><strong>Población total:</strong> ${d.pob_total.toLocaleString()} mil</div>
+        <div class="popup-growth"><strong>Población ocupada:</strong> ${d.pob_ocupada.toLocaleString()} mil</div>
+        ${tendencia ? `<div class="popup-meta">${tendencia}</div>` : ''}
+      </div>
+    `);
+
+    marker.on('click', () => onDeptClick(d));
+    marker.addTo(deptLayer);
+  });
+}
+
+function onDeptClick(d) {
+  if (!STATE.aiEnabled) return;
+  openDeptDetail(d);
+}
+
+function openDeptDetail(d) {
+  const emptyEl    = document.getElementById('detail-empty');
+  const detailEl   = document.getElementById('record-detail');
+  const disabledEl = document.getElementById('detail-disabled');
+
+  if (emptyEl)    emptyEl.classList.add('hidden');
+  if (detailEl)   detailEl.classList.remove('hidden');
+  if (disabledEl) disabledEl.classList.add('hidden');
+
+  const nameEl = document.getElementById('d-name');
+  if (nameEl) nameEl.textContent = `${d.nombre} · Departamento`;
+
+  const verdictEl = document.getElementById('d-verdict');
+  if (verdictEl) {
+    const color = deptColor(d.td);
+    verdictEl.textContent  = `TD ${d.td}%`;
+    verdictEl.style.cssText = `background:${color}1a;color:${color};border-color:${color}55;`;
+  }
+
+  const mEl = document.getElementById('d-metrics');
+  if (mEl) {
+    const metrics = [
+      { lbl:'DESOCUPACIÓN (TD)',   val:`${d.td}%`,  sub:'tasa 2025',        color: deptColor(d.td) },
+      { lbl:'OCUPACIÓN (TO)',      val:`${d.to}%`,  sub:'tasa 2025',        color:'#00ff88' },
+      { lbl:'PARTICIPACIÓN (TGP)',val:`${d.tgp}%`, sub:'tasa 2025',        color:'#4fc3f7' },
+      { lbl:'SUBOCUPACIÓN (TS)',  val:`${d.ts}%`,  sub:'tasa 2025',        color:'#ffd700' },
+      { lbl:'POBLACIÓN TOTAL',    val:`${d.pob_total.toLocaleString()}`, sub:'miles de personas', color:'#a78bfa' },
+      { lbl:'POBLACIÓN OCUPADA',  val:`${d.pob_ocupada.toLocaleString()}`, sub:'miles de personas', color:'#00ff88' },
+    ];
+    mEl.innerHTML = metrics.map(m => `
+      <div class="metric-box">
+        <div class="metric-label">${m.lbl}</div>
+        <div class="metric-value" style="color:${m.color}">${m.val}</div>
+        <div class="metric-sub">${m.sub}</div>
+      </div>`).join('');
+  }
+
+  const aiEl = document.getElementById('d-ai');
+  if (aiEl) {
+    const tendenciaTxt = (typeof d.td_2018 === 'number')
+      ? (d.td < d.td_2018
+          ? `La desocupación bajó de <strong>${d.td_2018}%</strong> (2018) a <strong>${d.td}%</strong> (2025): mejora de ${(d.td_2018 - d.td).toFixed(1)} puntos porcentuales.`
+          : `La desocupación subió de <strong>${d.td_2018}%</strong> (2018) a <strong>${d.td}%</strong> (2025): incremento de ${(d.td - d.td_2018).toFixed(1)} puntos porcentuales.`)
+      : 'No hay dato comparable de 2018 para este departamento.';
+
+    aiEl.innerHTML = `
+      <div class="d-ai-title">✦ ANÁLISIS DEL DEPARTAMENTO</div>
+      <div class="reasoning-step"><strong>Tendencia 2018 → 2025:</strong> ${tendenciaTxt}</div>
+      <div class="reasoning-step"><strong>Población desocupada:</strong> ${d.pob_desocupada.toLocaleString()} mil personas buscando empleo activamente.</div>
+      <div class="reasoning-step"><strong>Fuente:</strong> DANE, Gran Encuesta Integrada de Hogares (GEIH), serie anual.</div>
+    `;
+  }
+
+  const openBtn = document.getElementById('d-open-dataset');
+  if (openBtn) openBtn.onclick = null;
+}
+
+function buildLegendCategories() {
+  const el = document.getElementById('legend-categories');
+  if (!el) return;
+
+  let html = '';
+  if (STATE.categoryField && STATE.categories.length) {
+    const sorted = [...STATE.categories]
+      .sort((a, b) => (STATE.categoryCounts[b] || 0) - (STATE.categoryCounts[a] || 0))
+      .slice(0, 8);
+    html += sorted.map(val => `
+      <div class="legend-row"><span class="ldot" style="background:${categoryColor(val)}"></span>${val}</div>
+    `).join('');
+  }
+
+  if (typeof DEPARTAMENTOS_EMPLEO !== 'undefined' && STATE.layers.departamentos) {
+    html += `
+      <div class="legend-row"><span class="ldot" style="background:#00ff88"></span>Depto · TD ≤ 8%</div>
+      <div class="legend-row"><span class="ldot" style="background:#ffd700"></span>Depto · TD 8–10.5%</div>
+      <div class="legend-row"><span class="ldot" style="background:#ff5252"></span>Depto · TD &gt; 10.5%</div>
+    `;
+  }
+
+  el.innerHTML = html;
+}
 
 function updateSummary(loaded, total) {
   const pct = total > 0 ? (loaded / total) * 100 : 0;
@@ -291,6 +408,27 @@ function updateSummary(loaded, total) {
     { name: 'Total registros',    val: totalRecords > 0 ? 100 : 0, display: `${totalRecords}`, color: '#a78bfa' },
   ];
 
+  // ── INTEGRACIÓN ADITIVA: añade una barra con los 23 departamentos
+  // si departamentos-data.js está cargado.
+  if (typeof DEPARTAMENTOS_EMPLEO !== 'undefined') {
+    bars.push({
+      name: 'Deptos. DANE/GEIH',
+      val: 100,
+      display: `${DEPARTAMENTOS_EMPLEO.length}`,
+      color: '#4fc3f7',
+    });
+  }
+
+  // ── Última actualización de los enlaces de las APIs ──────────
+  if (typeof LAST_API_SYNC !== 'undefined' && LAST_API_SYNC) {
+    bars.push({
+      name: 'Última sincronización',
+      val: 100,
+      display: formatLastSync(LAST_API_SYNC),
+      color: '#f0c040',
+    });
+  }
+
   const barsEl = document.getElementById('opp-bars');
   if (!barsEl) return;
   barsEl.innerHTML = bars.map(b => `
@@ -301,16 +439,71 @@ function updateSummary(loaded, total) {
     </div>`).join('');
 }
 
+/**
+ * Formatea la fecha del último fetch exitoso a las APIs de
+ * datos.gov.co de forma relativa y compacta: "ahora", "hace 3 min",
+ * "hace 2 h", o la hora exacta (HH:MM) si fue hace más de un día.
+ */
+function formatLastSync(date) {
+  if (!(date instanceof Date) || isNaN(date)) return '–';
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+
+  if (diffMin < 1)  return 'ahora';
+  if (diffMin < 60) return `hace ${diffMin} min`;
+
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `hace ${diffH} h`;
+
+  return date.toLocaleString('es-CO', {
+    day: '2-digit', month: '2-digit',
+    hour: '2-digit', minute: '2-digit',
+  });
+}
+
 function buildTrendInsights() {
   const el = document.getElementById('ai-insights');
   if (!el) return;
+
+  let html = '';
+
+  // ── INTEGRACIÓN ADITIVA: tarjeta fija con tendencias nacionales
+  // reales (DANE/GEIH), siempre antes de las tarjetas dinámicas
+  // detectadas a partir de los datasets de datos.gov.co.
+  if (typeof NATIONAL_TRENDS !== 'undefined') {
+    const nt = NATIONAL_TRENDS;
+    html += `
+      <div class="ai-card">
+        <div class="ai-card-zone">🇨🇴 Informalidad laboral nacional</div>
+        <div class="ai-card-text">${nt.tasa_informalidad_nacional}% de la población ocupada en Colombia
+        (${nt.poblacion_ocupada_nacional_miles.toLocaleString()} mil personas) trabaja en condición
+        informal — ${nt.poblacion_informal_miles.toLocaleString()} mil personas sin protección laboral formal.</div>
+        <span class="ai-badge alta">🔴 Estructural</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-zone">🎓 Empleo y educación universitaria</div>
+        <div class="ai-card-text">Los ocupados con educación universitaria crecieron
+        ${nt.crecimiento_ocupados_universitarios_pct}% entre 2010 y 2024
+        (${nt.ocupados_educ_universitaria_2010_miles.toLocaleString()} → ${nt.ocupados_educ_universitaria_2024_miles.toLocaleString()} mil personas).</div>
+        <span class="ai-badge alta">🟢 Tendencia fuerte</span>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-zone">⚖️ Brecha de género · Bogotá</div>
+        <div class="ai-card-text">La tasa de desocupación femenina (${nt.td_mujeres_bogota}%) supera
+        en ${nt.brecha_genero_desocupacion_bogota_pp} puntos a la masculina (${nt.td_hombres_bogota}%) en Bogotá.</div>
+        <span class="ai-badge media">🟡 Tendencia moderada</span>
+      </div>
+    `;
+  }
+
   if (!STATE.categoryField || !Object.keys(STATE.categoryCounts).length) {
-    el.innerHTML = '<p class="hint">Aún no hay suficientes datos para detectar tendencias.</p>';
+    if (!html) el.innerHTML = '<p class="hint">Aún no hay suficientes datos para detectar tendencias.</p>';
+    else el.innerHTML = html;
     return;
   }
   const total  = EMPLEO_RECORDS.length || 1;
   const sorted = Object.entries(STATE.categoryCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
-  el.innerHTML = sorted.map(([val, count], i) => {
+  html += sorted.map(([val, count], i) => {
     const share = (count / total) * 100;
     const level = share >= 35 ? 'alta' : share >= 15 ? 'media' : 'baja';
     return `
@@ -322,6 +515,8 @@ function buildTrendInsights() {
         </span>
       </div>`;
   }).join('');
+
+  el.innerHTML = html;
 }
 
 function updateAIToggleUI() {
@@ -360,26 +555,9 @@ window.toggleAI = function () {
   }
 };
 
-function mostrarSkeletonDetalle() {
-  document.getElementById('detail-empty')?.classList.add('hidden');
-  document.getElementById('detail-disabled')?.classList.add('hidden');
-  const detailEl = document.getElementById('record-detail');
-  if (detailEl) {
-    detailEl.classList.remove('hidden');
-    detailEl.innerHTML = `
-      <div class="detail-skeleton">
-        <div class="skel-line skel-title"></div>
-        <div class="skel-line skel-badge"></div>
-        <div class="skel-line skel-box"></div>
-        <div class="skel-line skel-full"></div>
-        <div class="skel-line skel-medium"></div>
-        <div class="skel-line skel-short"></div>
-        <div class="skel-line skel-full"></div>
-        <div class="skel-line skel-medium"></div>
-      </div>`;
-  }
-}
-
+/* ═══════════════════════════════════════════════════════════
+   DETALLE DE REGISTRO (sidebar derecho)
+═══════════════════════════════════════════════════════════ */
 function openRecordDetail(datasetId, index) {
   const ds     = DATASETS.find(d => d.id === datasetId);
   const record = (DATA_CACHE[datasetId] || [])[index];
@@ -413,14 +591,7 @@ function openRecordDetail(datasetId, index) {
     const metrics = [];
     const geo = extractGeo(record);
     if (geo) {
-      const coordStr = `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}`;
-      metrics.push({
-        lbl: 'UBICACIÓN',
-        val: `${geo.lat.toFixed(2)}, ${geo.lng.toFixed(2)}
-          <button class="coord-copy-btn" title="Copiar coordenadas" onclick="copiarCoordenadas('${coordStr}', this)">📋</button>`,
-        sub: geo.approx ? 'aproximada' : 'exacta',
-        color: '#4fc3f7'
-    });
+      metrics.push({ lbl: 'UBICACIÓN', val: `${geo.lat.toFixed(2)}, ${geo.lng.toFixed(2)}`, sub: geo.approx ? 'aproximada' : 'exacta', color: '#4fc3f7' });
     }
     numericEntries.slice(0, 5).forEach(([k, v]) => {
       metrics.push({ lbl: formatearTitulo(k).toUpperCase(), val: v, sub: 'valor numérico', color: '#00ff88' });
@@ -444,9 +615,9 @@ function openRecordDetail(datasetId, index) {
         if (val && typeof val === 'object') val = JSON.stringify(val);
         if (val === '' || val === null || val === undefined) val = 'No especificado';
         return `<div class="reasoning-step"><strong>${formatearTitulo(k)}:</strong> ${val}</div>`;
-      }).join('')}`;     
+      }).join('')}`;
     const openBtn = document.getElementById('d-open-dataset');
-    if (openBtn) openBtn.onclick = () => openDashboard(datasetId); 
+    if (openBtn) openBtn.onclick = () => openDashboard(datasetId);
   }
 }
 
@@ -493,7 +664,7 @@ window.cerrarModales = function () {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-  ['modal-aspirante', 'modal-empresa'].forEach(id => {
+  ['modal-aspirante'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener('click', function (e) {
@@ -621,227 +792,42 @@ window.registrarAspirante = async function (e) {
   }
 };
 
-let currentDatasetId = null;
-let dashView         = 'charts';
+/* ═══════════════════════════════════════════════════════════
+   CAPAS (toggle): añade "departamentos" sin afectar "oportunidad"
+═══════════════════════════════════════════════════════════ */
+window.toggleLayer = function (key) {
+  if (!(key in STATE.layers)) return;
+  STATE.layers[key] = !STATE.layers[key];
+  const isOn = STATE.layers[key];
 
-window.openDashboard = function (datasetId) {
-  const overlay = document.getElementById('dashboard-overlay');
-  if (overlay) overlay.classList.remove('hidden');
-  renderDatasetList();
-  if (datasetId) selectDataset(datasetId);
-};
-
-window.closeDashboard = function () {
-  const overlay = document.getElementById('dashboard-overlay');
-  if (overlay) overlay.classList.add('hidden');
-};
-
-window.setDashView = function (view) {
-  dashView = view;
-  document.querySelectorAll('.dash-view-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.view === view);
-  });
-  renderDashContent();
-};
-
-window.filtrarDashboard = function () { renderDashContent(); };
-
-window.refrescarDataset = function () {
-  if (currentDatasetId) {
-    delete DATA_CACHE[currentDatasetId];
-    loadAllDatasets();
+  // Actualiza visualmente el switch y la etiqueta correspondientes
+  const toggleEl = document.getElementById(`toggle-${key}`);
+  const labelEl  = document.getElementById(`layer-label-${key}`);
+  if (toggleEl) {
+    toggleEl.classList.toggle('on', isOn);
+    toggleEl.classList.toggle('off', !isOn);
+    toggleEl.setAttribute('aria-checked', String(isOn));
+    const knob = toggleEl.querySelector('.toggle-knob');
+    if (knob) {
+      knob.classList.toggle('on', isOn);
+      knob.classList.toggle('off', !isOn);
+    }
   }
-};
-
-function renderDatasetList() {
-  const el = document.getElementById('dataset-list');
-  if (!el) return;
-  el.innerHTML = DATASETS.map(ds => {
-    const cached = DATA_CACHE[ds.id];
-    const badge  = cached === undefined ? 'pending' : Array.isArray(cached) ? 'ok' : 'error';
-    const badgeTxt = badge === 'pending' ? 'Cargando' : badge === 'ok' ? `${cached.length} reg.` : 'Error';
-    return `
-      <button class="dataset-btn ${currentDatasetId === ds.id ? 'active' : ''}" onclick="selectDataset('${ds.id}')">
-        <span class="dataset-btn-name">${ds.name}</span>
-        <div class="dataset-btn-meta">
-          <span class="dataset-btn-id">${ds.id}</span>
-          <span class="dataset-btn-badge ${badge}">${badgeTxt}</span>
-        </div>
-      </button>`;
-  }).join('');
-}
-
-function selectDataset(id) {
-  currentDatasetId = id;
-  renderDatasetList();
-  renderDashContent();
-}
-
-function renderDashContent() {
-  const contenedor = document.getElementById('dash-contenedor');
-  const estadoEl   = document.getElementById('dash-estado');
-  if (!contenedor) return;
-
-  if (!currentDatasetId) {
-    contenedor.innerHTML = '<div class="dash-msg dash-empty">Selecciona un conjunto de datos en el panel izquierdo.</div>';
-    if (estadoEl) estadoEl.textContent = 'Sin selección';
-    return;
+  if (labelEl) {
+    labelEl.classList.toggle('on', isOn);
+    labelEl.classList.toggle('off', !isOn);
   }
 
-  const ds      = DATASETS.find(d => d.id === currentDatasetId);
-  const records = DATA_CACHE[currentDatasetId];
-
-  if (!records) {
-    contenedor.innerHTML = '<div class="dash-msg dash-empty">Cargando datos…</div>';
-    if (estadoEl) estadoEl.textContent = 'Cargando…';
-    return;
-  }
-
-  if (!Array.isArray(records)) {
-    contenedor.innerHTML = '<div class="dash-msg dash-error">Error al cargar este conjunto de datos.</div>';
-    if (estadoEl) estadoEl.textContent = 'Error';
-    return;
-  }
-
-  const q       = (document.getElementById('dash-search')?.value || '').toLowerCase().trim();
-  const filtered = q
-    ? records.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(q)))
-    : records;
-
-  if (estadoEl) estadoEl.textContent = `${filtered.length} de ${records.length} registros · ${ds?.name || ''}`;
-
-  if (dashView === 'charts') {
-    contenedor.innerHTML = renderCharts(filtered, records, ds);
+  if (key === 'departamentos') {
+    renderDepartamentos();
   } else {
-    contenedor.innerHTML = filtered.length === 0
-      ? '<div class="dash-msg dash-empty">Sin resultados para esa búsqueda.</div>'
-      : filtered.slice(0, 60).map((r, i) => renderRecordCard(r, i, ds)).join('');
+    buildMapLayers();
   }
-}
-
-function renderRecordCard(r, i, ds) {
-  const entries = Object.entries(r).filter(([k]) => !k.startsWith(':'));
-  const score   = calcularScoreSimulado(r);
-  const geo     = extractGeo(r);
-  const geoBtn  = geo
-    ? `<button class="popup-action-btn dash-map-btn" onclick="closeDashboard();flyTo(${geo.lat},${geo.lng},14)">📍 Ver en mapa</button>`
-    : '';
-  return `
-    <div class="dash-card">
-      <h3>${ds?.name || 'Registro'} · #${i + 1}
-        <span class="verificada-badge">GeoPly ${score}%</span>
-      </h3>
-      ${entries.slice(0, 8).map(([k, v]) => `
-        <div class="dato">
-          <strong>${formatearTitulo(k)}</strong>
-          <span>${v || 'N/D'}</span>
-        </div>`).join('')}
-      ${geoBtn}
-    </div>`;
-}
-
-function renderCharts(filtered, all, ds) {
-  const total    = all.length;
-  const geoCount = EMPLEO_RECORDS.filter(r => r.datasetId === currentDatasetId).length;
-  const keys     = Object.keys(all[0] || {}).filter(k => !k.startsWith(':'));
-  const strKeys  = keys.filter(k => {
-    const vals = all.map(r => r[k]).filter(v => typeof v === 'string' && v.trim() && v.length < 50);
-    return vals.length > total * 0.5;
-  });
-
-  let charts = `
-    <div class="dash-card overview-card chart-card">
-      <h3>Resumen General</h3>
-      <div class="stat-grid stat-grid-4">
-        <div class="stat-box"><div class="stat-label">Total registros</div><div class="stat-value">${total}</div></div>
-        <div class="stat-box"><div class="stat-label">Geolocalizados</div><div class="stat-value" style="color:#4fc3f7">${geoCount}</div></div>
-        <div class="stat-box"><div class="stat-label">Cobertura geo</div><div class="stat-value" style="color:#00ff88">${total > 0 ? Math.round(geoCount / total * 100) : 0}%</div></div>
-        <div class="stat-box"><div class="stat-label">Campos</div><div class="stat-value" style="color:#a78bfa">${keys.length}</div></div>
-      </div>
-    </div>`;
-
-  strKeys.slice(0, 3).forEach(key => {
-    const counts = {};
-    all.forEach(r => {
-      const v = (r[key] || '').trim();
-      if (v) counts[v] = (counts[v] || 0) + 1;
-    });
-    const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8);
-    if (!sorted.length) return;
-
-    const maxVal = sorted[0][1];
-    const colors = CATEGORY_COLORS;
-
-    charts += `
-      <div class="dash-card chart-card chart-card-wide">
-        <h3>${formatearTitulo(key)}</h3>
-        <div class="chart-bars">
-          ${sorted.map(([v, c], i) => `
-            <div class="chart-bar-row">
-              <span class="chart-bar-label" title="${v}">${v}</span>
-              <div class="chart-bar-track">
-                <div class="chart-bar-fill" style="width:${Math.round((c / maxVal) * 100)}%;background:${colors[i % colors.length]}"></div>
-              </div>
-              <span class="chart-bar-val">${c}</span>
-            </div>`).join('')}
-        </div>
-      </div>`;
-  });
-
-  return charts;
-}
-
-function formatearTitulo(str) {
-  if (!str) return '';
-  return str
-    .replace(/_/g, ' ')
-    .replace(/([a-z])([A-Z])/g, '$1 $2')
-    .toLowerCase()
-    .replace(/^\w/, c => c.toUpperCase());
-}
-
-window.toggleSidebar = function (side) {
-  const sidebar = document.getElementById(`sidebar-${side}`);
-  const btn     = document.getElementById(`toggle-${side}`);
-  if (!sidebar || !btn) return;
-
-  if (side === 'right') {
-    const isNowHidden = sidebar.classList.toggle('hidden');
-    btn.classList.toggle('is-collapsed', isNowHidden);
-    btn.title = isNowHidden
-      ? 'Mostrar panel derecho'
-      : 'Ocultar panel derecho';
-  } else {
-    const isNowCollapsed = sidebar.classList.toggle('collapsed');
-    btn.classList.toggle('is-collapsed', isNowCollapsed);
-    btn.title = isNowCollapsed
-      ? 'Expandir panel izquierdo'
-      : 'Ocultar panel izquierdo';
-  }
-
-  setTimeout(() => { if (MAP) MAP.invalidateSize({ animate: false }); }, 320);
+  buildLegendCategories();
 };
 
-window.copiarCoordenadas = function (texto, btn) {
-  navigator.clipboard.writeText(texto).then(() => {
-    btn.textContent = '✔';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = '📋'; btn.classList.remove('copied'); }, 1800);
-  }).catch(() => {
-    btn.textContent = '✘';
-    setTimeout(() => { btn.textContent = '📋'; }, 1800);
-  });
+window.toggleLegend = function () {
+  STATE.legendOpen = !STATE.legendOpen;
+  const el = document.getElementById('map-legend');
+  if (el) el.classList.toggle('hidden', !STATE.legendOpen);
 };
-
-window.abrirHowTo = function () {
-  document.getElementById('modal-howto')?.classList.remove('hidden');
-};
-
-window.cerrarHowTo = function () {
-  document.getElementById('modal-howto')?.classList.add('hidden');
-};
-
-document.addEventListener('DOMContentLoaded', () => {
-  const el = document.getElementById('modal-howto');
-  if (el) el.addEventListener('click', e => { if (e.target === el) cerrarHowTo(); });
-});

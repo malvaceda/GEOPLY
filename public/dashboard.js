@@ -17,17 +17,18 @@ const DATASETS = Object.freeze([
 const RECORD_LIMIT = 40;
 const FETCH_TIMEOUT_MS = 12000;
 
-const DATA_CACHE = {};    
-const DATA_STATUS = {};        
-let EMPLEO_RECORDS = [];        
-let activeDatasetId = null;     
+const DATA_CACHE = {};
+const DATA_STATUS = {};
+let EMPLEO_RECORDS = [];
+let activeDatasetId = null;
 
-// A new state to track if the summary view is active
 let isSummaryViewActive = false;
 
 function buildResourceUrl(id) {
   return `https://www.datos.gov.co/resource/${id}.json?$limit=${RECORD_LIMIT}`;
 }
+
+let LAST_API_SYNC = null; // Date del último fetch exitoso a datos.gov.co
 
 async function fetchDataset(id) {
   const ctrl = new AbortController();
@@ -37,6 +38,7 @@ async function fetchDataset(id) {
     clearTimeout(t);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    LAST_API_SYNC = new Date();
     return Array.isArray(data) ? data : [];
   } catch (e) {
     clearTimeout(t);
@@ -70,27 +72,15 @@ async function loadAllDatasets() {
   buildEmpleoRecords();
   detectCategoryField();
 
-  try {
-    const saved = sessionStorage.getItem('geoply_categoria');
-    if (saved) STATE.selectedCategory = saved;
-  } catch(e) {}
-
   if (typeof buildCategoryChips === 'function') buildCategoryChips();
   if (typeof buildTrendInsights === 'function') buildTrendInsights();
   if (typeof buildMapLayers === 'function') buildMapLayers();
 
-const statusEl = document.getElementById('data-status');
+  const statusEl = document.getElementById('data-status');
   if (statusEl) {
     statusEl.textContent = loaded > 0
       ? `${loaded}/${DATASETS.length} conjuntos cargados · ${EMPLEO_RECORDS.length} ubicados`
       : 'No se pudo conectar con datos.gov.co';
-  }
-
-  const updateEl = document.getElementById('last-update');
-  if (updateEl) {
-    const ahora = new Date();
-    const hora  = ahora.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
-    updateEl.innerHTML = `Datos actualizados: <span>${hora}</span>`;
   }
 }
 
@@ -114,25 +104,36 @@ function buildEmpleoRecords() {
 }
 
 function buildEconomyEmploymentCard() {
+  // ── INTEGRACIÓN ADITIVA ──────────────────────────────────────
+  // Si departamentos-data.js está cargado, se usan las cifras reales
+  // de NATIONAL_TRENDS (DANE/GEIH) en vez de los guiones "--".
+  // Si no está cargado, el comportamiento es idéntico al original.
+  const nt = (typeof NATIONAL_TRENDS !== 'undefined') ? NATIONAL_TRENDS : null;
+
+  const tasaInformalidad = nt ? `${nt.tasa_informalidad_nacional}%` : '--%';
+  const tasaDesocupacion = nt ? `${nt.tasa_desocupacion_nacional_reciente}%` : '--%';
+  const sectorDemanda    = nt ? 'Educ. universitaria' : '--';
+  const nuevasVacantes   = nt ? `+${nt.crecimiento_ocupados_universitarios_pct}%` : '--';
+
   return `
     <article class="dash-card chart-card overview-card" style="grid-column: 1 / -1;">
       <h3>Economía y Empleo</h3>
       <div class="stat-grid">
         <div class="stat-box">
-          <div class="stat-label">Tasa de Crecimiento del Empleo</div>
-          <div class="stat-value" style="color:var(--mde-neon)">--%</div>
+          <div class="stat-label">Tasa de Informalidad Nacional</div>
+          <div class="stat-value" style="color:var(--mde-neon)">${tasaInformalidad}</div>
         </div>
         <div class="stat-box">
           <div class="stat-label">Tasa de Desempleo</div>
-          <div class="stat-value" style="color:var(--blue)">--%</div>
+          <div class="stat-value" style="color:var(--blue)">${tasaDesocupacion}</div>
         </div>
         <div class="stat-box">
-          <div class="stat-label">Sectores con Mayor Demanda</div>
-          <div class="stat-value" style="color:var(--gold)">--</div>
+          <div class="stat-label">Sector con Mayor Crecimiento</div>
+          <div class="stat-value" style="color:var(--gold)">${sectorDemanda}</div>
         </div>
         <div class="stat-box">
-          <div class="stat-label">Nuevas Vacantes</div>
-          <div class="stat-value" style="color:var(--purple)">--</div>
+          <div class="stat-label">Crec. Ocupados Univ. (2010→2024)</div>
+          <div class="stat-value" style="color:var(--purple)">${nuevasVacantes}</div>
         </div>
       </div>
     </article>
@@ -208,7 +209,7 @@ function renderDatasetList() {
       </button>
     `;
   }).join('');
-  
+
   el.innerHTML = summaryBtnHtml + datasetBtnsHtml;
 }
 
@@ -225,8 +226,10 @@ function showSummaryView() {
   const estado = document.getElementById('dash-estado');
   if (estado) estado.textContent = 'Resumen de Economía y Empleo';
 
-  document.getElementById('dash-view-controls').style.display = 'none';
-  document.getElementById('dash-search').style.display = 'none';
+  const viewControls = document.getElementById('dash-view-controls');
+  if (viewControls) viewControls.style.display = 'none';
+  const searchEl = document.getElementById('dash-search');
+  if (searchEl) searchEl.style.display = 'none';
 }
 
 async function showDataset(id) {
@@ -234,8 +237,10 @@ async function showDataset(id) {
   activeDatasetId = id;
   renderDatasetList();
 
-  document.getElementById('dash-view-controls').style.display = 'flex';
-  document.getElementById('dash-search').style.display = 'block';
+  const viewControls = document.getElementById('dash-view-controls');
+  if (viewControls) viewControls.style.display = 'flex';
+  const searchElDisplay = document.getElementById('dash-search');
+  if (searchElDisplay) searchElDisplay.style.display = 'block';
 
   const estado = document.getElementById('dash-estado');
   const search = document.getElementById('dash-search');
@@ -245,7 +250,8 @@ async function showDataset(id) {
 
   if (DATA_CACHE[id] === undefined || DATA_STATUS[id] === 'pending') {
     if (estado) estado.textContent = `Consultando "${ds.name}"…`;
-    document.getElementById('dash-contenedor').innerHTML = '';
+    const contenedorEl = document.getElementById('dash-contenedor');
+    if (contenedorEl) contenedorEl.innerHTML = '';
     DATA_STATUS[id] = 'pending';
     renderDatasetList();
     const records = await fetchDataset(id);
@@ -260,7 +266,8 @@ async function showDataset(id) {
 
   if (DATA_STATUS[id] === 'error') {
     if (estado) estado.textContent = '';
-    document.getElementById('dash-contenedor').innerHTML = `
+    const contenedorErr = document.getElementById('dash-contenedor');
+    if (contenedorErr) contenedorErr.innerHTML = `
       <div class="dash-msg dash-error">
         ⚠ No se pudo consultar este conjunto de datos. Verifica tu conexión e intenta
         "Actualizar".
@@ -271,7 +278,8 @@ async function showDataset(id) {
 
   if (records.length === 0) {
     if (estado) estado.textContent = '';
-    document.getElementById('dash-contenedor').innerHTML = `
+    const contenedorEmpty = document.getElementById('dash-contenedor');
+    if (contenedorEmpty) contenedorEmpty.innerHTML = `
       <div class="dash-msg dash-empty">No se encontraron registros en este conjunto de datos.</div>
     `;
     return;
@@ -280,14 +288,11 @@ async function showDataset(id) {
   if (estado) estado.textContent = `${ds.name} · ${records.length} registros`;
 
   const currentMode = dashViewMode;
-  dashViewMode = null; 
+  dashViewMode = null;
   setTimeout(() => {
     setDashView(currentMode);
   }, 0);
 }
-
-
-// ... (The rest of the file remains the same, but we need to adjust openDashboard)
 
 window.openDashboard = function(datasetId) {
   const overlay = document.getElementById('dashboard-overlay');
@@ -297,7 +302,6 @@ window.openDashboard = function(datasetId) {
   if (datasetId) {
     showDataset(datasetId);
   } else if (!activeDatasetId && !isSummaryViewActive) {
-    // If nothing is selected, show the first dataset by default
     const first = DATASETS.find(d => (DATA_CACHE[d.id] || []).length > 0) || DATASETS[0];
     showDataset(first.id);
   }
@@ -330,12 +334,12 @@ function renderDashboardView(records, datasetId) {
 }
 
 function analyzeRecords(records) {
-  const fields = {}; // campo -> array de valores no vacíos
+  const fields = {};
 
   records.forEach(r => {
     Object.entries(r).forEach(([k, v]) => {
       if (k.startsWith(':')) return;
-      if (v && typeof v === 'object') return; // omite geo-points, etc.
+      if (v && typeof v === 'object') return;
       if (v === '' || v === null || v === undefined) return;
       if (!fields[k]) fields[k] = [];
       fields[k].push(v);
@@ -534,14 +538,16 @@ function buildNumericChartCard(field, records, labelField) {
 function filtrarDashboard() {
   if (isSummaryViewActive) return;
   if (!activeDatasetId) return;
-  
-  const texto = (document.getElementById('dash-search').value || '').toLowerCase();
+
+  const searchEl = document.getElementById('dash-search');
+  const texto = (searchEl ? searchEl.value : '').toLowerCase();
   const datos = DATA_CACHE[activeDatasetId] || [];
   const ds = DATASETS.find(d => d.id === activeDatasetId);
 
   if (!texto) {
     renderDashboardView(datos, activeDatasetId);
-    document.getElementById('dash-estado').textContent = `${ds.name} · ${datos.length} registros`;
+    const estadoEl = document.getElementById('dash-estado');
+    if (estadoEl) estadoEl.textContent = `${ds.name} · ${datos.length} registros`;
     return;
   }
 
@@ -550,13 +556,12 @@ function filtrarDashboard() {
   );
 
   renderDashboardView(filtrados, activeDatasetId);
-  document.getElementById('dash-estado').textContent =
-    `Mostrando ${filtrados.length} de ${datos.length} registros`;
+  const estadoEl2 = document.getElementById('dash-estado');
+  if (estadoEl2) estadoEl2.textContent = `Mostrando ${filtrados.length} de ${datos.length} registros`;
 }
 
 async function refrescarDataset() {
   if (isSummaryViewActive) {
-    // Here you could re-calculate the summary data in the future
     return;
   }
   if (!activeDatasetId) return;
