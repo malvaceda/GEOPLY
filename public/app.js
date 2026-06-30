@@ -16,21 +16,22 @@ const STATE = {
   categories:       [],
   categoryCounts:   {},
   selectedRecord:   null,
-  legendOpen:       false,
   aiEnabled:        true,
   sidebarLeftOpen:  false,
   sidebarRightOpen: false,
 };
 
-let MAP         = null;
-let markerLayer = null;
-let heatLayer   = null;
-let deptLayer   = null;
+let MAP          = null;
+let markerLayer   = null;
+let heatLayer     = null;
+let deptLayer     = null;
+let activeMarker  = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   try {
     initMap();
     updateAIToggleUI();
+    restoreCategoryFilter();
     loadAllDatasets();
     setInterval(refreshLastSyncLabel, 30000);
   } catch (err) {
@@ -107,9 +108,6 @@ window.flyTo = function (lat, lng, zoom = 12) {
     MAP.flyTo([lat, lng], zoom, { duration: 0.8 });
 };
 
-/* ═══════════════════════════════════════════════════════════
-   SIDEBARS: plegar / desplegar
-═══════════════════════════════════════════════════════════ */
 function setSidebarState(side, open) {
   const sidebarEl = document.querySelector(side === 'left' ? '.sidebar-left' : '.sidebar-right');
   const toggleEl  = document.getElementById(side === 'left' ? 'toggle-left' : 'toggle-right');
@@ -162,6 +160,7 @@ function buildMapLayers() {
   if (!MAP) return;
   if (markerLayer) markerLayer.clearLayers();
   if (heatLayer) { try { MAP.removeLayer(heatLayer); } catch (e) {} heatLayer = null; }
+  activeMarker = null;
   const data = getFilteredRecords();
   if (STATE.layers.oportunidad) {
     renderMarkers(data);
@@ -184,7 +183,15 @@ function renderMarkers(data) {
       });
     } catch (e) { return; }
     marker.bindPopup(buildEmpleoPopup(item));
-    marker.on('click', () => onMarkerClick(item));
+
+    marker.bindTooltip(buildEmpleoTooltip(item), {
+      direction: 'top',
+      offset: [0, -6],
+      className: 'geoply-tooltip',
+      opacity: 1,
+    });
+
+    marker.on('click', () => onMarkerClick(item, marker)); // NUEVO: se pasa el marcador
     marker.addTo(markerLayer);
   });
 }
@@ -203,6 +210,16 @@ function renderHeat(data) {
   } catch (e) {
     console.warn('[GeoPly] heatLayer error:', e);
   }
+}
+
+function buildEmpleoTooltip(item) {
+  const r = item.record;
+  const categoria = STATE.categoryField ? r[STATE.categoryField] : null;
+  return `
+    <div class="gt-name">${item.datasetName}</div>
+    <div class="gt-meta">Registro #${item.index + 1}${item.geo.approx ? ' · ubicación aprox.' : ''}</div>
+    ${categoria ? `<span class="gt-cat">${categoria}</span>` : ''}
+  `;
 }
 
 function buildEmpleoPopup(item) {
@@ -232,11 +249,44 @@ window.onMarkerClickById = function (datasetId, index) {
   if (item) onMarkerClick(item);
 };
 
-function onMarkerClick(item) {
+function onMarkerClick(item, marker = null) {
   if (!STATE.aiEnabled) return;
   STATE.selectedRecord = { datasetId: item.datasetId, index: item.index };
   showBothSidebars();
-  openRecordDetail(item.datasetId, item.index);
+  setActiveMarker(marker);
+  showDetailSkeleton();
+  setTimeout(() => openRecordDetail(item.datasetId, item.index), 220);
+}
+
+function setActiveMarker(marker) {
+  if (activeMarker && activeMarker !== marker) {
+    const prevEl = activeMarker.getElement && activeMarker.getElement();
+    if (prevEl) prevEl.classList.remove('marker-active-pulse');
+    try { activeMarker.setStyle({ radius: 6, weight: 1.2 }); } catch (e) {}
+  }
+  activeMarker = marker || null;
+  if (activeMarker) {
+    try { activeMarker.setStyle({ radius: 9, weight: 2 }); } catch (e) {}
+    const el = activeMarker.getElement && activeMarker.getElement();
+    if (el) el.classList.add('marker-active-pulse');
+  }
+}
+
+function showDetailSkeleton() {
+  const emptyEl    = document.getElementById('detail-empty');
+  const detailEl   = document.getElementById('record-detail');
+  const disabledEl = document.getElementById('detail-disabled');
+  const skelEl     = document.getElementById('detail-skeleton');
+
+  if (emptyEl)    emptyEl.classList.add('hidden');
+  if (detailEl)   detailEl.classList.add('hidden');
+  if (disabledEl) disabledEl.classList.add('hidden');
+  if (skelEl)     skelEl.classList.remove('hidden');
+}
+
+function hideDetailSkeleton() {
+  const skelEl = document.getElementById('detail-skeleton');
+  if (skelEl) skelEl.classList.add('hidden');
 }
 
 function buildCategoryChips() {
@@ -262,11 +312,21 @@ function buildCategoryChips() {
   }).join('');
 }
 
+const CATEGORY_STORAGE_KEY = 'geoply_categoria_seleccionada';
+
 window.setCategory = function (val) {
   STATE.selectedCategory = val;
+  try { sessionStorage.setItem(CATEGORY_STORAGE_KEY, val); } catch (e) {}
   buildCategoryChips();
   buildMapLayers();
 };
+
+function restoreCategoryFilter() {
+  try {
+    const saved = sessionStorage.getItem(CATEGORY_STORAGE_KEY);
+    if (saved) STATE.selectedCategory = saved;
+  } catch (e) {}
+}
 
 function deptColor(td) {
   if (td <= 8)   return '#00ff88';
@@ -312,21 +372,31 @@ function renderDepartamentos() {
       </div>
     `);
 
-    marker.on('click', () => onDeptClick(d));
+    marker.bindTooltip(`
+      <div class="gt-name">${d.nombre}</div>
+      <div class="gt-meta">TD ${d.td}% · TO ${d.to}%</div>
+      <span class="gt-cat" style="background:${color}22;color:${color}">Departamento</span>
+    `, { direction: 'top', offset: [0, -6], className: 'geoply-tooltip', opacity: 1 });
+
+    marker.on('click', () => onDeptClick(d, marker)); // NUEVO: se pasa el marcador
     marker.addTo(deptLayer);
   });
 }
 
-function onDeptClick(d) {
+function onDeptClick(d, marker = null) {
   if (!STATE.aiEnabled) return;
   showBothSidebars();
-  openDeptDetail(d);
+  setActiveMarker(marker);
+  showDetailSkeleton();
+  setTimeout(() => openDeptDetail(d), 220);
 }
 
 function openDeptDetail(d) {
   const emptyEl    = document.getElementById('detail-empty');
   const detailEl   = document.getElementById('record-detail');
   const disabledEl = document.getElementById('detail-disabled');
+
+  hideDetailSkeleton();
 
   if (emptyEl)    emptyEl.classList.add('hidden');
   if (detailEl)   detailEl.classList.remove('hidden');
@@ -358,6 +428,16 @@ function openDeptDetail(d) {
         <div class="metric-value" style="color:${m.color}">${m.val}</div>
         <div class="metric-sub">${m.sub}</div>
       </div>`).join('');
+
+    const coordStr = `${d.lat.toFixed(5)}, ${d.lng.toFixed(5)}`;
+    const coordRow = document.createElement('div');
+    coordRow.className = 'coord-row';
+    coordRow.style.cssText = 'grid-column:1 / -1; margin-top:2px;';
+    coordRow.innerHTML = `
+      <span style="font-family:var(--ff-mono); font-size:9.5px; color:var(--tx-muted);">${coordStr}</span>
+      <button class="copy-coord-btn" onclick="copiarCoordenadas('${coordStr}', this)" title="Copiar coordenadas">📋 Copiar</button>
+    `;
+    mEl.appendChild(coordRow);
   }
 
   const aiEl = document.getElementById('d-ai');
@@ -378,31 +458,6 @@ function openDeptDetail(d) {
 
   const openBtn = document.getElementById('d-open-dataset');
   if (openBtn) openBtn.onclick = null;
-}
-
-function buildLegendCategories() {
-  const el = document.getElementById('legend-categories');
-  if (!el) return;
-
-  let html = '';
-  if (STATE.categoryField && STATE.categories.length) {
-    const sorted = [...STATE.categories]
-      .sort((a, b) => (STATE.categoryCounts[b] || 0) - (STATE.categoryCounts[a] || 0))
-      .slice(0, 8);
-    html += sorted.map(val => `
-      <div class="legend-row"><span class="ldot" style="background:${categoryColor(val)}"></span>${val}</div>
-    `).join('');
-  }
-
-  if (typeof DEPARTAMENTOS_EMPLEO !== 'undefined' && STATE.layers.departamentos) {
-    html += `
-      <div class="legend-row"><span class="ldot" style="background:#00ff88"></span>Depto · TD ≤ 8%</div>
-      <div class="legend-row"><span class="ldot" style="background:#ffd700"></span>Depto · TD 8–10.5%</div>
-      <div class="legend-row"><span class="ldot" style="background:#ff5252"></span>Depto · TD &gt; 10.5%</div>
-    `;
-  }
-
-  el.innerHTML = html;
 }
 
 function updateSummary(loaded, total) {
@@ -566,6 +621,8 @@ function openRecordDetail(datasetId, index) {
   const record = (DATA_CACHE[datasetId] || [])[index];
   if (!ds || !record) return;
 
+  hideDetailSkeleton();
+
   document.getElementById('detail-empty')?.classList.add('hidden');
   document.getElementById('record-detail')?.classList.remove('hidden');
   document.getElementById('detail-disabled')?.classList.add('hidden');
@@ -593,7 +650,9 @@ function openRecordDetail(datasetId, index) {
   if (mEl) {
     const metrics = [];
     const geo = extractGeo(record);
+    let coordStr = null;
     if (geo) {
+      coordStr = `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}`;
       metrics.push({ lbl: 'UBICACIÓN', val: `${geo.lat.toFixed(2)}, ${geo.lng.toFixed(2)}`, sub: geo.approx ? 'aproximada' : 'exacta', color: '#4fc3f7' });
     }
     numericEntries.slice(0, 5).forEach(([k, v]) => {
@@ -605,6 +664,17 @@ function openRecordDetail(datasetId, index) {
         <div class="metric-value" style="color:${m.color}">${m.val}</div>
         <div class="metric-sub">${m.sub}</div>
       </div>`).join('');
+
+    if (coordStr) {
+      const coordRow = document.createElement('div');
+      coordRow.className = 'coord-row';
+      coordRow.style.cssText = 'grid-column:1 / -1; margin-top:2px;';
+      coordRow.innerHTML = `
+        <span style="font-family:var(--ff-mono); font-size:9.5px; color:var(--tx-muted);">${coordStr}</span>
+        <button class="copy-coord-btn" onclick="copiarCoordenadas('${coordStr}', this)" title="Copiar coordenadas">📋 Copiar</button>
+      `;
+      mEl.appendChild(coordRow);
+    }
   }
 
   const aiEl = document.getElementById('d-ai');
@@ -619,10 +689,47 @@ function openRecordDetail(datasetId, index) {
         if (val === '' || val === null || val === undefined) val = 'No especificado';
         return `<div class="reasoning-step"><strong>${formatearTitulo(k)}:</strong> ${val}</div>`;
       }).join('')}`;
-    const openBtn = document.getElementById('d-open-dataset');
-    if (openBtn) openBtn.onclick = () => openDashboard(datasetId);
   }
+
+  const openBtn = document.getElementById('d-open-dataset');
+  if (openBtn) openBtn.onclick = () => openDashboard(datasetId);
 }
+
+window.copiarCoordenadas = function (texto, btnEl) {
+  const fallbackCopy = () => {
+    try {
+      const tmp = document.createElement('textarea');
+      tmp.value = texto;
+      tmp.style.position = 'fixed';
+      tmp.style.opacity = '0';
+      document.body.appendChild(tmp);
+      tmp.focus();
+      tmp.select();
+      document.execCommand('copy');
+      document.body.removeChild(tmp);
+      return true;
+    } catch (e) { return false; }
+  };
+
+  const marcarCopiado = () => {
+    if (!btnEl) return;
+    const original = btnEl.textContent;
+    btnEl.textContent = '✓ Copiado';
+    btnEl.classList.add('copied');
+    setTimeout(() => {
+      btnEl.textContent = original;
+      btnEl.classList.remove('copied');
+    }, 1600);
+  };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(texto)
+      .then(marcarCopiado)
+      .catch(() => { if (fallbackCopy()) marcarCopiado(); });
+  } else {
+    if (fallbackCopy()) marcarCopiado();
+  }
+};
 
 function calcularScoreSimulado(record) {
   let score = 60;
@@ -824,8 +931,61 @@ window.toggleLayer = function (key) {
   buildLegendCategories();
 };
 
-window.toggleLegend = function () {
-  STATE.legendOpen = !STATE.legendOpen;
-  const el = document.getElementById('map-legend');
-  if (el) el.classList.toggle('hidden', !STATE.legendOpen);
+let howToStep = 1;
+const HOWTO_TOTAL_STEPS = 3;
+
+window.abrirHowTo = function () {
+  howToStep = 1;
+  renderHowToStep();
+  const modal = document.getElementById('modal-howto');
+  if (modal) {
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
 };
+
+window.cerrarHowTo = function () {
+  const modal = document.getElementById('modal-howto');
+  if (modal) modal.classList.add('hidden');
+  document.body.style.overflow = '';
+};
+
+window.irPasoHowTo = function (n) {
+  howToStep = Math.min(Math.max(n, 1), HOWTO_TOTAL_STEPS);
+  renderHowToStep();
+};
+
+window.pasoSiguienteHowTo = function () {
+  if (howToStep >= HOWTO_TOTAL_STEPS) { cerrarHowTo(); return; }
+  howToStep++;
+  renderHowToStep();
+};
+
+window.pasoAnteriorHowTo = function () {
+  if (howToStep <= 1) return;
+  howToStep--;
+  renderHowToStep();
+};
+
+function renderHowToStep() {
+  document.querySelectorAll('.howto-step').forEach(stepEl => {
+    stepEl.classList.toggle('active', Number(stepEl.dataset.step) === howToStep);
+  });
+  document.querySelectorAll('.howto-dot').forEach(dotEl => {
+    dotEl.classList.toggle('active', Number(dotEl.dataset.dot) === howToStep);
+  });
+
+  const prevBtn = document.getElementById('howto-prev');
+  const nextBtn = document.getElementById('howto-next');
+  if (prevBtn) prevBtn.disabled = howToStep === 1;
+  if (nextBtn) nextBtn.textContent = howToStep === HOWTO_TOTAL_STEPS ? 'Entendido ✓' : 'Siguiente →';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('modal-howto');
+  if (el) {
+    el.addEventListener('click', function (e) {
+      if (e.target === el) cerrarHowTo();
+    });
+  }
+});

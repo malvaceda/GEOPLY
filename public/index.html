@@ -5,14 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>GeoPly</title>
 
-  <!-- Fuentes -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
-
-  <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-  <!-- Estilos propios -->
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -28,6 +24,10 @@
       <div class="header-status">
         <button class="dash-open-btn" onclick="abrirModal('modal-aspirante')">
           Soy Aspirante
+        </button>
+        <button class="dash-open-btn" onclick="abrirHowTo()"
+          style="border-color:var(--purple);color:var(--purple);background:rgba(167,139,250,0.1);">
+          ¿Cómo funciona?
         </button>
         <button class="dash-open-btn" onclick="openDashboard()">Panel de Empleo
         </button>
@@ -66,7 +66,7 @@
             </div>
           </div>
           <div id="opp-bars" class="opp-bars">
-            <p class="hint">Consultando APIs de datos.gov.co…</p>
+            <p class="hint">Consultando APIs</p>
           </div>
         </div>
       </section>
@@ -91,18 +91,6 @@
           </svg>
           Centrar
         </button>
-        <button class="map-ctrl-btn" onclick="toggleLegend()" title="Leyenda">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
-            <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-            <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-          </svg>
-          Leyenda
-        </button>
-      </div>
-
-      <div class="map-legend hidden" id="map-legend">
-        <p class="legend-title">LEYENDA</p>
-        <div id="legend-categories"></div>
       </div>
 
       <div class="map-loading" id="map-loading" aria-live="polite">
@@ -135,6 +123,13 @@
         <button id="ai-toggle-btn-disabled" class="ai-toggle-btn ai-toggle-off" onclick="toggleAI()">
           Activar tendencias
         </button>
+      </div>
+
+      <div id="detail-skeleton" class="detail-empty hidden" style="align-items:stretch; padding:18px;">
+        <div class="skeleton-line skeleton-title"></div>
+        <div class="skeleton-line skeleton-badge"></div>
+        <div class="skeleton-line skeleton-block"></div>
+        <div class="skeleton-line skeleton-block short"></div>
       </div>
 
       <div id="record-detail" class="commune-detail hidden">
@@ -254,6 +249,61 @@
     </div>
   </div>
 
+  <div id="modal-howto" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Cómo funciona GeoPly">
+    <div class="modal-card howto-card">
+      <div class="modal-header">
+        <span class="modal-title" style="color:var(--purple)">¿CÓMO FUNCIONA GEOPLY?</span>
+        <button class="modal-close" onclick="cerrarHowTo()" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="howto-steps" id="howto-steps">
+
+          <div class="howto-step active" data-step="1">
+            <div class="howto-step-icon">🗺️</div>
+            <div class="howto-step-title">1. Explora el mapa</div>
+            <div class="howto-step-text">
+              Cada punto en el mapa representa una oportunidad de empleo, dataset abierto
+              o departamento con indicadores laborales. Usa los filtros
+              de categoría para enfocarte en lo que te interesa.
+            </div>
+          </div>
+
+          <div class="howto-step" data-step="2">
+            <div class="howto-step-icon">🎯</div>
+            <div class="howto-step-title">2. Selecciona una oportunidad</div>
+            <div class="howto-step-text">
+              Haz clic sobre cualquier marcador para ver su detalle completo: ubicación,
+              métricas, análisis de tendencias y datos de compatibilidad — todo aparece
+              en el panel lateral derecho.
+            </div>
+          </div>
+
+          <div class="howto-step" data-step="3">
+            <div class="howto-step-icon">✅</div>
+            <div class="howto-step-title">3. Revisa la información</div>
+            <div class="howto-step-text">
+              Consulta las métricas clave, copia coordenadas, abre el conjunto de datos
+              completo en el Panel de Empleo o explora las tendencias detectadas
+              automáticamente por GeoPly.
+            </div>
+          </div>
+
+        </div>
+
+        <div class="howto-dots" id="howto-dots">
+          <span class="howto-dot active" data-dot="1" onclick="irPasoHowTo(1)"></span>
+          <span class="howto-dot" data-dot="2" onclick="irPasoHowTo(2)"></span>
+          <span class="howto-dot" data-dot="3" onclick="irPasoHowTo(3)"></span>
+        </div>
+
+        <div class="howto-nav">
+          <button class="map-ctrl-btn" id="howto-prev" onclick="pasoAnteriorHowTo()" disabled>← Anterior</button>
+          <button class="form-submit" id="howto-next" onclick="pasoSiguienteHowTo()" style="width:auto; padding:8px 18px;">Siguiente →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="dashboard-overlay" class="dashboard-overlay hidden" role="dialog" aria-label="Panel de Empleo — Datos Abiertos">
     <div class="dashboard-header">
       <div class="dashboard-title">
@@ -285,7 +335,6 @@
     onerror="console.warn('[GeoPly] leaflet.heat no disponible — heatmap desactivado')">
   </script>
 
-  <!-- Datos departamentales DANE/GEIH (módulo aditivo) -->
   <script src="departamentos-data.js"></script>
 
   <script src="geo-data.js"></script>

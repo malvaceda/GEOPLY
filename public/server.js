@@ -212,7 +212,6 @@ app.get('/api/geoply-score/:aspiranteId/:vacanteId', async (req, res) => {
       detalle.salario = 0;
     }
 
-    // 2. Distancia (20 pts) — Haversine
     if (asp.latitud_residencia && asp.longitud_residencia && vac.latitud && vac.longitud) {
       const distKm = haversine(
         asp.latitud_residencia, asp.longitud_residencia,
@@ -224,7 +223,6 @@ app.get('/api/geoply-score/:aspiranteId/:vacanteId', async (req, res) => {
       detalle.distancia_km = Math.round(distKm * 10) / 10;
     }
 
-    // 3. Experiencia (15 pts)
     if (asp.experiencia_anios >= vac.experiencia_requerida) {
       score += 15;
       detalle.experiencia = 15;
@@ -232,7 +230,6 @@ app.get('/api/geoply-score/:aspiranteId/:vacanteId', async (req, res) => {
       detalle.experiencia = 0;
     }
 
-    // 4. Nivel educativo (15 pts)
     const nivelMap = { primaria: 1, bachillerato: 2, tecnico: 3, universitario: 4, posgrado: 5 };
     const nivAsp   = nivelMap[asp.nivel_educativo?.toLowerCase()] || 0;
     const nivVac   = nivelMap[vac.nivel_educativo_req?.toLowerCase()] || 0;
@@ -243,7 +240,6 @@ app.get('/api/geoply-score/:aspiranteId/:vacanteId', async (req, res) => {
       detalle.nivel_educativo = 0;
     }
 
-    // 5. Sector de crecimiento (10 pts)
     if (vac.sector_crecimiento && vac.sector_crecimiento >= 5) {
       score += 10;
       detalle.sector_crecimiento = 10;
@@ -251,7 +247,6 @@ app.get('/api/geoply-score/:aspiranteId/:vacanteId', async (req, res) => {
       detalle.sector_crecimiento = 0;
     }
 
-    // Base mínima 20 pts
     const total = Math.min(score + 20, 100);
 
     res.json({
@@ -265,7 +260,6 @@ app.get('/api/geoply-score/:aspiranteId/:vacanteId', async (req, res) => {
   }
 });
 
-// ─── Fórmula Haversine (distancia en km) ─────────────────
 function haversine(lat1, lon1, lat2, lon2) {
   const R    = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -277,9 +271,6 @@ function haversine(lat1, lon1, lat2, lon2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// ═══════════════════════════════════════════════════════════
-// INICIO
-// ═══════════════════════════════════════════════════════════
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`[GeoPly] Servidor corriendo en http://localhost:${PORT}`);
