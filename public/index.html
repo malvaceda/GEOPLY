@@ -46,37 +46,18 @@
     <aside class="sidebar sidebar-left collapsed" aria-label="Panel de control">
 
       <section class="panel-block">
-        <h2 class="block-title">CATEGORÍA DE EMPLEO</h2>
-        <div class="filter-chips" id="filter-chips">
+        <h2 class="block-title"><span class="ai-star">✦</span> LEYENDA DEL MAPA</h2>
+        <div class="legend-scale">
+          <div class="legend-row"><span class="legend-dot" style="background:#00ff88"></span> Alta oportunidad (GeoPly Score ≥ 70)</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#ffd700"></span> Oportunidad media (45–69)</div>
+          <div class="legend-row"><span class="legend-dot" style="background:#ff5252"></span> Oportunidad baja (&lt; 45)</div>
         </div>
+        <p class="hint" style="text-align:left; padding:8px 0 0;">Cada departamento se colorea según su GeoPly Score, el indicador compuesto de las 15 variables del modelo. Haz clic en un departamento para ver su detalle.</p>
       </section>
 
       <section class="panel-block">
-        <h2 class="block-title">RESUMEN DE DATOS</h2>
-        <div class="opp-card" id="opp-card">
-          <div class="opp-ring-wrap">
-            <svg viewBox="0 0 100 100" class="opp-ring" aria-hidden="true">
-              <circle cx="50" cy="50" r="42" class="ring-track"/>
-              <circle cx="50" cy="50" r="42" class="ring-progress" id="ring-progress"
-                      stroke-dasharray="263.9" stroke-dashoffset="263.9"/>
-            </svg>
-            <div class="opp-score-label">
-              <span id="opp-score-num" class="opp-num">–</span>
-              <span class="opp-unit">% datasets</span>
-            </div>
-          </div>
-          <div id="opp-bars" class="opp-bars">
-            <p class="hint">Consultando APIs</p>
-          </div>
-        </div>
-      </section>
-
-      <section class="panel-block">
-        <h2 class="block-title"><span class="ai-star">✦</span> TENDENCIAS DETECTADAS</h2>
-        <div class="ai-cards" id="ai-insights">
-          <div class="ai-skeleton"></div>
-          <div class="ai-skeleton"></div>
-        </div>
+        <h2 class="block-title">DEPARTAMENTOS</h2>
+        <div class="filter-chips" id="dept-quicklist"></div>
       </section>
     </aside>
 
@@ -106,23 +87,11 @@
       </div>
     </div>
 
-    <aside class="sidebar sidebar-right collapsed" aria-label="Detalle del registro">
+    <aside class="sidebar sidebar-right collapsed" aria-label="Detalle de la zona">
       <div id="detail-empty" class="detail-empty">
         <img src="explorar.png" class="empty-icon-img" alt="Explorar mapa"
              onerror="this.style.display='none'" />
-        <p>Selecciona un <strong>punto de empleo</strong> o un <strong>departamento</strong> en el mapa para ver su detalle</p>
-        <button id="ai-toggle-btn" class="ai-toggle-btn ai-toggle-on" onclick="toggleAI()">
-          Desactivar tendencias
-        </button>
-      </div>
-
-      <div id="detail-disabled" class="detail-empty hidden">
-        <img src="explorar.png" class="empty-icon-img" alt="Explorar mapa"
-             style="opacity:0.3;filter:grayscale(1);" onerror="this.style.display='none'" />
-        <p style="color:var(--tx-muted)">El análisis de tendencias está <strong style="color:#ff5252">desactivado</strong></p>
-        <button id="ai-toggle-btn-disabled" class="ai-toggle-btn ai-toggle-off" onclick="toggleAI()">
-          Activar tendencias
-        </button>
+        <p>Selecciona un <strong>departamento</strong> (o una zona de Medellín) en el mapa para ver su detalle</p>
       </div>
 
       <div id="detail-skeleton" class="detail-empty hidden" style="align-items:stretch; padding:18px;">
@@ -138,10 +107,10 @@
           <div id="d-verdict" class="d-verdict"></div>
         </div>
         <div id="d-metrics" class="d-metrics"></div>
-        <div id="d-ai" class="d-ai"></div>
-        <div style="padding:12px 14px 14px; display:flex; flex-direction:column; gap:8px;">
+        <div id="d-teaser" class="d-teaser"></div>
+        <div style="padding:0 14px 14px; display:flex; flex-direction:column; gap:8px;">
           <button id="d-open-dataset" class="popup-action-btn">
-            ✦ Ver conjunto completo en el panel →
+            ✦ Ver las 15 variables en el Panel de Empleo →
           </button>
         </div>
       </div>
@@ -262,29 +231,27 @@
             <div class="howto-step-icon">🗺️</div>
             <div class="howto-step-title">1. Explora el mapa</div>
             <div class="howto-step-text">
-              Cada punto en el mapa representa una oportunidad de empleo, dataset abierto
-              o departamento con indicadores laborales. Usa los filtros
-              de categoría para enfocarte en lo que te interesa.
+              Cada departamento en el mapa se colorea según su GeoPly Score. Haz clic
+              sobre un departamento (o una zona de Medellín) para ver su detalle.
             </div>
           </div>
 
           <div class="howto-step" data-step="2">
             <div class="howto-step-icon">🎯</div>
-            <div class="howto-step-title">2. Selecciona una oportunidad</div>
+            <div class="howto-step-title">2. Revisa el detalle</div>
             <div class="howto-step-text">
-              Haz clic sobre cualquier marcador para ver su detalle completo: ubicación,
-              métricas, análisis de tendencias y datos de compatibilidad — todo aparece
-              en el panel lateral derecho.
+              En el panel derecho verás las tasas clave del DANE (desempleo, ocupación,
+              participación, subocupación) y la población de esa zona.
             </div>
           </div>
 
           <div class="howto-step" data-step="3">
             <div class="howto-step-icon">✅</div>
-            <div class="howto-step-title">3. Revisa la información</div>
+            <div class="howto-step-title">3. Analiza a fondo</div>
             <div class="howto-step-text">
-              Consulta las métricas clave, copia coordenadas, abre el conjunto de datos
-              completo en el Panel de Empleo o explora las tendencias detectadas
-              automáticamente por GeoPly.
+              Entra al Panel de Empleo para ver las 15 variables del modelo GeoPly,
+              filtrar por área de interés y leer el análisis en lenguaje sencillo
+              de cada gráfico.
             </div>
           </div>
 
@@ -307,17 +274,20 @@
   <div id="dashboard-overlay" class="dashboard-overlay hidden" role="dialog" aria-label="Panel de Empleo — Datos Abiertos">
     <div class="dashboard-header">
       <div class="dashboard-title">
-        <span class="ai-star">✦</span> Panel de Empleo · Datos Abiertos Colombia
+        <span class="ai-star">✦</span> Panel de Empleo · Modelo GeoPly (15 variables)
       </div>
       <button class="dash-close-btn" onclick="closeDashboard()" aria-label="Cerrar panel">✕</button>
     </div>
-    <div class="dashboard-body">
-      <aside class="dashboard-sidebar" id="dataset-list" aria-label="Lista de datasets"></aside>
+    <div class="dashboard-body dashboard-body-single">
       <main class="dashboard-main">
         <div class="dash-toolbar">
-          <input id="dash-search" type="text" placeholder="Buscar en este conjunto de datos…" oninput="filtrarDashboard()" />
-          <button class="map-ctrl-btn" onclick="refrescarDataset()">⟳ Actualizar</button>
-          <span id="dash-estado" class="dash-estado">Selecciona un conjunto de datos</span>
+          <div class="dash-search-wrap">
+            <input id="dash-search" type="text" list="dash-dept-options"
+                   placeholder="Buscar departamento o zona…" oninput="onDashSearchInput()" />
+            <datalist id="dash-dept-options"></datalist>
+          </div>
+          <div class="filter-chips" id="dash-area-chips"></div>
+          <span id="dash-estado" class="dash-estado">Selecciona un departamento</span>
         </div>
         <section class="dash-grid" id="dash-contenedor" aria-live="polite"></section>
       </main>
@@ -329,15 +299,11 @@
     window.__heatReady = false;
     window.__t0 = performance.now();
   </script>
-  <script
-    src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"
-    onload="window.__heatReady=true;"
-    onerror="console.warn('[GeoPly] leaflet.heat no disponible — heatmap desactivado')">
-  </script>
 
   <script src="departamentos-data.js"></script>
-
+  <script src="geo-boundaries.js"></script>
   <script src="geo-data.js"></script>
+  <script src="indicators.js"></script>
   <script src="dashboard.js"></script>
   <script src="app.js" defer></script>
 </body>

@@ -2,37 +2,26 @@
 
 const MAP_CENTER = [4.5709, -74.2973];
 const MAP_ZOOM   = 5;
-
-const CATEGORY_COLORS = [
-  '#00ff88', '#4fc3f7', '#ffd700', '#ff5252', '#a78bfa',
-  '#ff8c69', '#7dff88', '#f0c040', '#00c45e', '#80d8ff',
-  '#ff80ab', '#7da893',
-];
+const MEDELLIN_ZOOM_THRESHOLD = 9.2; // a partir de este zoom se muestran las comunas de Medellín
 
 const STATE = {
-  layers:           { oportunidad: true, departamentos: true },
-  selectedCategory: 'all',
-  categoryField:    null,
-  categories:       [],
-  categoryCounts:   {},
-  selectedRecord:   null,
-  aiEnabled:        true,
+  selectedDept:     null,   // nombre del departamento activo
+  selectedComuna:   null,   // nombre de la comuna de Medellín activa (si aplica)
+  selectedArea:     'all',  // área de interés activa (para el panel de empleo)
   sidebarLeftOpen:  false,
   sidebarRightOpen: false,
 };
 
-let MAP          = null;
-let markerLayer   = null;
-let heatLayer     = null;
-let deptLayer     = null;
-let activeMarker  = null;
+let MAP           = null;
+let deptLayer      = null;
+let comunaLayer     = null;
+let activeLayerRef  = null;
 
 document.addEventListener('DOMContentLoaded', () => {
   try {
     initMap();
-    updateAIToggleUI();
-    restoreCategoryFilter();
     loadAllDatasets();
+    buildDeptQuicklist();
     setInterval(refreshLastSyncLabel, 30000);
   } catch (err) {
     console.error('[GeoPly] Init error:', err);
@@ -41,12 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function refreshLastSyncLabel() {
-  if (typeof LAST_API_SYNC === 'undefined' || !LAST_API_SYNC) return;
-  const valEl = document.querySelector('#opp-bars .bar-row:last-child .bar-val');
-  const rowNameEl = document.querySelector('#opp-bars .bar-row:last-child .bar-name');
-  if (valEl && rowNameEl && rowNameEl.textContent === 'Última sincronización') {
-    valEl.textContent = formatLastSync(LAST_API_SYNC);
-  }
+  // Reservado para futuros indicadores de frescura de datos en el panel de empleo.
 }
 
 function showError() {
@@ -72,8 +56,8 @@ function initMap() {
     attribution: '© OpenStreetMap',
   }).addTo(MAP);
 
-  markerLayer = L.layerGroup().addTo(MAP);
   deptLayer   = L.layerGroup().addTo(MAP);
+  comunaLayer = L.layerGroup();
 
   const loaderTimer = setTimeout(hideLoader, 900);
   MAP.once('load', () => { clearTimeout(loaderTimer); hideLoader(); });
@@ -81,7 +65,17 @@ function initMap() {
   setTimeout(() => { if (MAP) MAP.invalidateSize({ animate: false }); }, 120);
   MAP.once('load', stampPerf);
 
-  renderDepartamentos();
+  renderDeptPolygons();
+
+  MAP.on('zoomend', () => {
+    const z = MAP.getZoom();
+    const withinMedellin = MAP.getBounds().contains([6.2518, -75.5636]);
+    if (z >= MEDELLIN_ZOOM_THRESHOLD && withinMedellin) {
+      if (!MAP.hasLayer(comunaLayer)) { comunaLayer.addTo(MAP); renderComunaPolygons(); }
+    } else if (MAP.hasLayer(comunaLayer)) {
+      MAP.removeLayer(comunaLayer);
+    }
+  });
 }
 
 function hideLoader() {
@@ -101,11 +95,6 @@ function stampPerf() {
 
 window.resetView = function () {
   if (MAP) MAP.flyTo(MAP_CENTER, MAP_ZOOM, { duration: 0.9 });
-};
-
-window.flyTo = function (lat, lng, zoom = 12) {
-  if (MAP && typeof lat === 'number' && typeof lng === 'number')
-    MAP.flyTo([lat, lng], zoom, { duration: 0.8 });
 };
 
 function setSidebarState(side, open) {
@@ -128,618 +117,275 @@ window.toggleSidebar = function (side) {
   setSidebarState(side, !STATE[key]);
 };
 
-function showBothSidebars() {
-  setSidebarState('left', true);
-  setSidebarState('right', true);
-}
+function showRightSidebar() { setSidebarState('right', true); }
 
-function categoryColor(value) {
-  if (!value || !STATE.categories.length) return CATEGORY_COLORS[CATEGORY_COLORS.length - 1];
-  let idx = STATE.categories.findIndex(c => c.toLowerCase() === String(value).toLowerCase());
-  if (idx < 0) idx = STATE.categories.length;
-  return CATEGORY_COLORS[idx % CATEGORY_COLORS.length];
-}
+// ------------------------------------------------------------------
+// Colores por GeoPly Score
+// ------------------------------------------------------------------
 
-function colorForItem(item) {
-  if (STATE.categoryField) {
-    const val = item.record[STATE.categoryField];
-    if (typeof val === 'string' && val.trim()) return categoryColor(val.trim());
-  }
-  return CATEGORY_COLORS[CATEGORY_COLORS.length - 1];
-}
-
-function getFilteredRecords() {
-  if (STATE.selectedCategory === 'all' || !STATE.categoryField) return EMPLEO_RECORDS;
-  return EMPLEO_RECORDS.filter(item => {
-    const val = item.record[STATE.categoryField];
-    return typeof val === 'string' && val.trim() === STATE.selectedCategory;
-  });
-}
-
-function buildMapLayers() {
-  if (!MAP) return;
-  if (markerLayer) markerLayer.clearLayers();
-  if (heatLayer) { try { MAP.removeLayer(heatLayer); } catch (e) {} heatLayer = null; }
-  activeMarker = null;
-  const data = getFilteredRecords();
-  if (STATE.layers.oportunidad) {
-    renderMarkers(data);
-    renderHeat(data);
-  }
-  buildLegendCategories();
-}
-
-function renderMarkers(data) {
-  data.forEach(item => {
-    const color = colorForItem(item);
-    let marker;
-    try {
-      marker = L.circleMarker([item.geo.lat, item.geo.lng], {
-        radius: 6,
-        fillColor: color,
-        fillOpacity: 0.85,
-        color: 'rgba(255,255,255,0.3)',
-        weight: 1.2,
-      });
-    } catch (e) { return; }
-    marker.bindPopup(buildEmpleoPopup(item));
-
-    marker.bindTooltip(buildEmpleoTooltip(item), {
-      direction: 'top',
-      offset: [0, -6],
-      className: 'geoply-tooltip',
-      opacity: 1,
-    });
-
-    marker.on('click', () => onMarkerClick(item, marker)); // NUEVO: se pasa el marcador
-    marker.addTo(markerLayer);
-  });
-}
-
-function renderHeat(data) {
-  if (!window.__heatReady) return;
-  try {
-    const pts = data.map(item => [item.geo.lat, item.geo.lng, 0.6]);
-    if (!pts.length) return;
-    heatLayer = L.heatLayer(pts, {
-      radius: 28, blur: 22, maxZoom: 12, max: 1.0,
-      gradient: { 0: '#060a0e', 0.25: '#00401f', 0.5: '#008A45', 0.75: '#00ff88', 1: '#ffffff' },
-    }).addTo(MAP);
-    if (heatLayer && heatLayer._canvas)
-      heatLayer._canvas.style.pointerEvents = 'none';
-  } catch (e) {
-    console.warn('[GeoPly] heatLayer error:', e);
-  }
-}
-
-function buildEmpleoTooltip(item) {
-  const r = item.record;
-  const categoria = STATE.categoryField ? r[STATE.categoryField] : null;
-  return `
-    <div class="gt-name">${item.datasetName}</div>
-    <div class="gt-meta">Registro #${item.index + 1}${item.geo.approx ? ' · ubicación aprox.' : ''}</div>
-    ${categoria ? `<span class="gt-cat">${categoria}</span>` : ''}
-  `;
-}
-
-function buildEmpleoPopup(item) {
-  const r = item.record;
-  const categoria = STATE.categoryField ? r[STATE.categoryField] : null;
-  const approxNote = item.geo.approx
-    ? '<div class="popup-meta">Ubicación aproximada (centro de municipio/departamento)</div>'
-    : '';
-  const extras = Object.entries(r)
-    .filter(([k, v]) => typeof v === 'string' && v.trim() && !k.startsWith(':') && k !== STATE.categoryField && v.length <= 60)
-    .slice(0, 3);
-  const extrasHtml = extras.map(([k, v]) => `
-    <div class="popup-growth"><strong>${formatearTitulo(k)}:</strong> ${v}</div>`).join('');
-
-  return `
-    <div class="popup-body">
-      <div class="popup-name">${item.datasetName}</div>
-      <div class="popup-meta">Registro #${item.index + 1}</div>
-      ${categoria ? `<div class="popup-growth"><strong>${formatearTitulo(STATE.categoryField)}:</strong> ${categoria}</div>` : ''}
-      ${extrasHtml}
-      ${approxNote}
-    </div>`;
-}
-
-window.onMarkerClickById = function (datasetId, index) {
-  const item = EMPLEO_RECORDS.find(r => r.datasetId === datasetId && r.index === index);
-  if (item) onMarkerClick(item);
-};
-
-function onMarkerClick(item, marker = null) {
-  if (!STATE.aiEnabled) return;
-  STATE.selectedRecord = { datasetId: item.datasetId, index: item.index };
-  showBothSidebars();
-  setActiveMarker(marker);
-  showDetailSkeleton();
-  setTimeout(() => openRecordDetail(item.datasetId, item.index), 220);
-}
-
-function setActiveMarker(marker) {
-  if (activeMarker && activeMarker !== marker) {
-    const prevEl = activeMarker.getElement && activeMarker.getElement();
-    if (prevEl) prevEl.classList.remove('marker-active-pulse');
-    try { activeMarker.setStyle({ radius: 6, weight: 1.2 }); } catch (e) {}
-  }
-  activeMarker = marker || null;
-  if (activeMarker) {
-    try { activeMarker.setStyle({ radius: 9, weight: 2 }); } catch (e) {}
-    const el = activeMarker.getElement && activeMarker.getElement();
-    if (el) el.classList.add('marker-active-pulse');
-  }
-}
-
-function showDetailSkeleton() {
-  const emptyEl    = document.getElementById('detail-empty');
-  const detailEl   = document.getElementById('record-detail');
-  const disabledEl = document.getElementById('detail-disabled');
-  const skelEl     = document.getElementById('detail-skeleton');
-
-  if (emptyEl)    emptyEl.classList.add('hidden');
-  if (detailEl)   detailEl.classList.add('hidden');
-  if (disabledEl) disabledEl.classList.add('hidden');
-  if (skelEl)     skelEl.classList.remove('hidden');
-}
-
-function hideDetailSkeleton() {
-  const skelEl = document.getElementById('detail-skeleton');
-  if (skelEl) skelEl.classList.add('hidden');
-}
-
-function buildCategoryChips() {
-  const el = document.getElementById('filter-chips');
-  if (!el) return;
-  if (!STATE.categoryField || !STATE.categories.length) {
-    el.innerHTML = '<p class="hint">No se detectó un campo de categoría con suficientes datos.</p>';
-    return;
-  }
-  const sorted = [...STATE.categories].sort((a, b) => (STATE.categoryCounts[b] || 0) - (STATE.categoryCounts[a] || 0));
-  const chips = ['all', ...sorted];
-  el.innerHTML = chips.map(val => {
-    const isAll  = val === 'all';
-    const label  = isAll ? 'Todas' : val;
-    const count  = isAll ? EMPLEO_RECORDS.length : (STATE.categoryCounts[val] || 0);
-    const color  = isAll ? 'var(--mde-neon)' : categoryColor(val);
-    const on     = STATE.selectedCategory === val;
-    return `
-      <span class="chip ${on ? 'on' : 'off'}" onclick="setCategory('${val.replace(/'/g, "\\'")}')" role="button">
-        <span class="chip-dot" style="background:${color}"></span>
-        ${label} <span class="chip-count">${count}</span>
-      </span>`;
-  }).join('');
-}
-
-const CATEGORY_STORAGE_KEY = 'geoply_categoria_seleccionada';
-
-window.setCategory = function (val) {
-  STATE.selectedCategory = val;
-  try { sessionStorage.setItem(CATEGORY_STORAGE_KEY, val); } catch (e) {}
-  buildCategoryChips();
-  buildMapLayers();
-};
-
-function restoreCategoryFilter() {
-  try {
-    const saved = sessionStorage.getItem(CATEGORY_STORAGE_KEY);
-    if (saved) STATE.selectedCategory = saved;
-  } catch (e) {}
-}
-
-function deptColor(td) {
-  if (td <= 8)   return '#00ff88';
-  if (td <= 10.5) return '#ffd700';
+function colorForScore(score) {
+  if (score >= 70) return '#00ff88';
+  if (score >= 45) return '#ffd700';
   return '#ff5252';
 }
 
-function renderDepartamentos() {
-  if (typeof DEPARTAMENTOS_EMPLEO === 'undefined' || !deptLayer) return;
+function buildDeptStyle(deptName, isActive) {
+  const idx = computeAllIndicators();
+  const r = idx.byDept[deptName];
+  const score = r ? r.geoplyScore : 50;
+  return {
+    color: isActive ? '#ffffff' : 'rgba(255,255,255,0.35)',
+    weight: isActive ? 2.4 : 1,
+    fillColor: colorForScore(score),
+    fillOpacity: isActive ? 0.55 : 0.32,
+  };
+}
+
+// ------------------------------------------------------------------
+// Render de polígonos (departamentos y comunas de Medellín)
+// ------------------------------------------------------------------
+
+function renderDeptPolygons() {
+  if (!MAP || typeof DEPT_BOUNDARIES === 'undefined') return;
   deptLayer.clearLayers();
-  if (!STATE.layers.departamentos) return;
 
-  DEPARTAMENTOS_EMPLEO.forEach(d => {
-    const color = deptColor(d.td);
-    let marker;
-    try {
-      marker = L.circleMarker([d.lat, d.lng], {
-        radius: 8,
-        fillColor: color,
-        fillOpacity: 0.8,
-        color: 'rgba(255,255,255,0.35)',
-        weight: 1.4,
+  DEPT_BOUNDARIES.features.forEach(feature => {
+    const deptName = feature.properties.nombre;
+    const layer = L.geoJSON(feature, { style: buildDeptStyle(deptName, false) });
+
+    layer.eachLayer(poly => {
+      poly.bindTooltip(buildDeptTooltip(deptName), {
+        sticky: true, className: 'geoply-tooltip', opacity: 1,
       });
-    } catch (e) { return; }
+      poly.on('mouseover', () => { if (STATE.selectedDept !== deptName) poly.setStyle({ fillOpacity: 0.5 }); });
+      poly.on('mouseout',  () => { if (STATE.selectedDept !== deptName) poly.setStyle(buildDeptStyle(deptName, false)); });
+      poly.on('click', () => selectDept(deptName, poly));
+      poly._geoplyName = deptName;
+    });
 
-    const tendencia = (typeof d.td_2018 === 'number')
-      ? (d.td < d.td_2018
-          ? `📉 Bajó desde ${d.td_2018}% en 2018`
-          : `📈 Subió desde ${d.td_2018}% en 2018`)
-      : '';
-
-    marker.bindPopup(`
-      <div class="popup-body">
-        <div class="popup-name">${d.nombre}</div>
-        <div class="popup-meta">Departamento · DANE GEIH 2025</div>
-        <div class="popup-growth"><strong>Desocupación (TD):</strong> ${d.td}%</div>
-        <div class="popup-growth"><strong>Ocupación (TO):</strong> ${d.to}%</div>
-        <div class="popup-growth"><strong>Participación (TGP):</strong> ${d.tgp}%</div>
-        <div class="popup-growth"><strong>Subocupación (TS):</strong> ${d.ts}%</div>
-        <div class="popup-growth"><strong>Población total:</strong> ${d.pob_total.toLocaleString()} mil</div>
-        <div class="popup-growth"><strong>Población ocupada:</strong> ${d.pob_ocupada.toLocaleString()} mil</div>
-        ${tendencia ? `<div class="popup-meta">${tendencia}</div>` : ''}
-      </div>
-    `);
-
-    marker.bindTooltip(`
-      <div class="gt-name">${d.nombre}</div>
-      <div class="gt-meta">TD ${d.td}% · TO ${d.to}%</div>
-      <span class="gt-cat" style="background:${color}22;color:${color}">Departamento</span>
-    `, { direction: 'top', offset: [0, -6], className: 'geoply-tooltip', opacity: 1 });
-
-    marker.on('click', () => onDeptClick(d, marker)); // NUEVO: se pasa el marcador
-    marker.addTo(deptLayer);
+    layer.addTo(deptLayer);
   });
 }
 
-function onDeptClick(d, marker = null) {
-  if (!STATE.aiEnabled) return;
-  showBothSidebars();
-  setActiveMarker(marker);
+function buildDeptTooltip(deptName) {
+  const idx = computeAllIndicators();
+  const r = idx.byDept[deptName];
+  if (!r) return deptName;
+  return `
+    <div class="gt-name">${deptName}</div>
+    <div class="gt-meta">GeoPly Score: ${r.geoplyScore}/100 · TD ${r.tasaDesempleo}%</div>
+    <span class="gt-cat" style="background:${colorForScore(r.geoplyScore)}22;color:${colorForScore(r.geoplyScore)}">${verdictFromScore(r.geoplyScore).label}</span>
+  `;
+}
+
+function renderComunaPolygons() {
+  if (!MAP || typeof MEDELLIN_ZONAS === 'undefined') return;
+  comunaLayer.clearLayers();
+
+  MEDELLIN_ZONAS.features.forEach(feature => {
+    const comunaName = feature.properties.nombre;
+    const layer = L.geoJSON(feature, {
+      style: { color: 'rgba(255,255,255,0.4)', weight: 1, fillColor: '#4fc3f7', fillOpacity: 0.28 },
+    });
+    layer.eachLayer(poly => {
+      poly.bindTooltip(`
+        <div class="gt-name">${comunaName}</div>
+        <div class="gt-meta">Comuna de Medellín (zona aproximada)</div>
+      `, { sticky: true, className: 'geoply-tooltip', opacity: 1 });
+      poly.on('mouseover', () => poly.setStyle({ fillOpacity: 0.45 }));
+      poly.on('mouseout',  () => poly.setStyle({ fillOpacity: 0.28 }));
+      poly.on('click', (e) => { L.DomEvent.stopPropagation(e); selectComuna(comunaName, poly); });
+    });
+    layer.addTo(comunaLayer);
+  });
+}
+
+// ------------------------------------------------------------------
+// Selección de departamento / comuna
+// ------------------------------------------------------------------
+
+function selectDept(deptName, poly) {
+  STATE.selectedDept = deptName;
+  STATE.selectedComuna = null;
+  showRightSidebar();
+  refreshDeptStyles();
   showDetailSkeleton();
-  setTimeout(() => openDeptDetail(d), 220);
+  setTimeout(() => openDeptDetail(deptName), 200);
 }
 
-function openDeptDetail(d) {
-  const emptyEl    = document.getElementById('detail-empty');
-  const detailEl   = document.getElementById('record-detail');
-  const disabledEl = document.getElementById('detail-disabled');
-
-  hideDetailSkeleton();
-
-  if (emptyEl)    emptyEl.classList.add('hidden');
-  if (detailEl)   detailEl.classList.remove('hidden');
-  if (disabledEl) disabledEl.classList.add('hidden');
-
-  const nameEl = document.getElementById('d-name');
-  if (nameEl) nameEl.textContent = `${d.nombre} · Departamento`;
-
-  const verdictEl = document.getElementById('d-verdict');
-  if (verdictEl) {
-    const color = deptColor(d.td);
-    verdictEl.textContent  = `TD ${d.td}%`;
-    verdictEl.style.cssText = `background:${color}1a;color:${color};border-color:${color}55;`;
-  }
-
-  const mEl = document.getElementById('d-metrics');
-  if (mEl) {
-    const metrics = [
-      { lbl:'DESOCUPACIÓN (TD)',   val:`${d.td}%`,  sub:'tasa 2025',        color: deptColor(d.td) },
-      { lbl:'OCUPACIÓN (TO)',      val:`${d.to}%`,  sub:'tasa 2025',        color:'#00ff88' },
-      { lbl:'PARTICIPACIÓN (TGP)',val:`${d.tgp}%`, sub:'tasa 2025',        color:'#4fc3f7' },
-      { lbl:'SUBOCUPACIÓN (TS)',  val:`${d.ts}%`,  sub:'tasa 2025',        color:'#ffd700' },
-      { lbl:'POBLACIÓN TOTAL',    val:`${d.pob_total.toLocaleString()}`, sub:'miles de personas', color:'#a78bfa' },
-      { lbl:'POBLACIÓN OCUPADA',  val:`${d.pob_ocupada.toLocaleString()}`, sub:'miles de personas', color:'#00ff88' },
-    ];
-    mEl.innerHTML = metrics.map(m => `
-      <div class="metric-box">
-        <div class="metric-label">${m.lbl}</div>
-        <div class="metric-value" style="color:${m.color}">${m.val}</div>
-        <div class="metric-sub">${m.sub}</div>
-      </div>`).join('');
-
-    const coordStr = `${d.lat.toFixed(5)}, ${d.lng.toFixed(5)}`;
-    const coordRow = document.createElement('div');
-    coordRow.className = 'coord-row';
-    coordRow.style.cssText = 'grid-column:1 / -1; margin-top:2px;';
-    coordRow.innerHTML = `
-      <span style="font-family:var(--ff-mono); font-size:9.5px; color:var(--tx-muted);">${coordStr}</span>
-      <button class="copy-coord-btn" onclick="copiarCoordenadas('${coordStr}', this)" title="Copiar coordenadas">📋 Copiar</button>
-    `;
-    mEl.appendChild(coordRow);
-  }
-
-  const aiEl = document.getElementById('d-ai');
-  if (aiEl) {
-    const tendenciaTxt = (typeof d.td_2018 === 'number')
-      ? (d.td < d.td_2018
-          ? `La desocupación bajó de <strong>${d.td_2018}%</strong> (2018) a <strong>${d.td}%</strong> (2025): mejora de ${(d.td_2018 - d.td).toFixed(1)} puntos porcentuales.`
-          : `La desocupación subió de <strong>${d.td_2018}%</strong> (2018) a <strong>${d.td}%</strong> (2025): incremento de ${(d.td - d.td_2018).toFixed(1)} puntos porcentuales.`)
-      : 'No hay dato comparable de 2018 para este departamento.';
-
-    aiEl.innerHTML = `
-      <div class="d-ai-title">✦ ANÁLISIS DEL DEPARTAMENTO</div>
-      <div class="reasoning-step"><strong>Tendencia 2018 → 2025:</strong> ${tendenciaTxt}</div>
-      <div class="reasoning-step"><strong>Población desocupada:</strong> ${d.pob_desocupada.toLocaleString()} mil personas buscando empleo activamente.</div>
-      <div class="reasoning-step"><strong>Fuente:</strong> DANE, Gran Encuesta Integrada de Hogares (GEIH), serie anual.</div>
-    `;
-  }
-
-  const openBtn = document.getElementById('d-open-dataset');
-  if (openBtn) openBtn.onclick = null;
+function selectComuna(comunaName, poly) {
+  STATE.selectedComuna = comunaName;
+  showRightSidebar();
+  showDetailSkeleton();
+  setTimeout(() => openComunaDetail(comunaName), 200);
 }
 
-function updateSummary(loaded, total) {
-  const pct = total > 0 ? (loaded / total) * 100 : 0;
-  const circumference = 2 * Math.PI * 42;
-  const ring  = document.getElementById('ring-progress');
-  const num   = document.getElementById('opp-score-num');
-  const color = pct >= 70 ? '#00ff88' : pct >= 40 ? '#ffd700' : '#ff5252';
-  if (ring) {
-    ring.style.strokeDashoffset = circumference - (pct / 100) * circumference;
-    ring.style.stroke  = color;
-    ring.style.filter  = `drop-shadow(0 0 6px ${color})`;
-  }
-  if (num) { num.textContent = Math.round(pct); num.style.color = color; }
-
-  const totalRecords = DATASETS.reduce((acc, ds) => acc + (DATA_CACHE[ds.id] || []).length, 0);
-
-  const bars = [
-    { name: 'Datasets cargados',  val: pct,    display: `${loaded}/${total}`, color: '#00ff88' },
-    { name: 'Total registros',    val: totalRecords > 0 ? 100 : 0, display: `${totalRecords}`, color: '#a78bfa' },
-  ];
-
-  if (typeof DEPARTAMENTOS_EMPLEO !== 'undefined') {
-    bars.push({
-      name: 'Deptos. DANE/GEIH',
-      val: 100,
-      display: `${DEPARTAMENTOS_EMPLEO.length}`,
-      color: '#4fc3f7',
+function refreshDeptStyles() {
+  deptLayer.eachLayer(group => {
+    group.eachLayer(poly => {
+      poly.setStyle(buildDeptStyle(poly._geoplyName, poly._geoplyName === STATE.selectedDept));
     });
-  }
+  });
+}
 
-  if (typeof LAST_API_SYNC !== 'undefined' && LAST_API_SYNC) {
-    bars.push({
-      name: 'Última sincronización',
-      val: 100,
-      display: formatLastSync(LAST_API_SYNC),
-      color: '#f0c040',
-    });
-  }
+function showDetailSkeleton() {
+  document.getElementById('detail-empty')?.classList.add('hidden');
+  document.getElementById('record-detail')?.classList.add('hidden');
+  document.getElementById('detail-skeleton')?.classList.remove('hidden');
+}
 
-  const barsEl = document.getElementById('opp-bars');
-  if (!barsEl) return;
-  barsEl.innerHTML = bars.map(b => `
-    <div class="bar-row">
-      <span class="bar-name">${b.name}</span>
-      <div class="bar-track"><div class="bar-fill" style="width:${b.val.toFixed(0)}%;background:${b.color}"></div></div>
-      <span class="bar-val" style="color:${b.color}">${b.display}</span>
+function hideDetailSkeleton() {
+  document.getElementById('detail-skeleton')?.classList.add('hidden');
+}
+
+function metricBoxesHtml(list) {
+  return list.map(m => `
+    <div class="metric-box">
+      <div class="metric-label">${m.lbl}</div>
+      <div class="metric-value" style="color:${m.color}">${m.val}</div>
+      <div class="metric-sub">${m.sub}</div>
     </div>`).join('');
 }
 
-function formatLastSync(date) {
-  if (!(date instanceof Date) || isNaN(date)) return '–';
-  const diffMs = Date.now() - date.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-
-  if (diffMin < 1)  return 'ahora';
-  if (diffMin < 60) return `hace ${diffMin} min`;
-
-  const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `hace ${diffH} h`;
-
-  return date.toLocaleString('es-CO', {
-    day: '2-digit', month: '2-digit',
-    hour: '2-digit', minute: '2-digit',
-  });
-}
-
-function buildTrendInsights() {
-  const el = document.getElementById('ai-insights');
-  if (!el) return;
-
-  let html = '';
-
-  if (typeof NATIONAL_TRENDS !== 'undefined') {
-    const nt = NATIONAL_TRENDS;
-    html += `
-      <div class="ai-card">
-        <div class="ai-card-zone">🇨🇴 Informalidad laboral nacional</div>
-        <div class="ai-card-text">${nt.tasa_informalidad_nacional}% de la población ocupada en Colombia
-        (${nt.poblacion_ocupada_nacional_miles.toLocaleString()} mil personas) trabaja en condición
-        informal — ${nt.poblacion_informal_miles.toLocaleString()} mil personas sin protección laboral formal.</div>
-        <span class="ai-badge alta">🔴 Estructural</span>
-      </div>
-      <div class="ai-card">
-        <div class="ai-card-zone">🎓 Empleo y educación universitaria</div>
-        <div class="ai-card-text">Los ocupados con educación universitaria crecieron
-        ${nt.crecimiento_ocupados_universitarios_pct}% entre 2010 y 2024
-        (${nt.ocupados_educ_universitaria_2010_miles.toLocaleString()} → ${nt.ocupados_educ_universitaria_2024_miles.toLocaleString()} mil personas).</div>
-        <span class="ai-badge alta">🟢 Tendencia fuerte</span>
-      </div>
-      <div class="ai-card">
-        <div class="ai-card-zone">⚖️ Brecha de género · Bogotá</div>
-        <div class="ai-card-text">La tasa de desocupación femenina (${nt.td_mujeres_bogota}%) supera
-        en ${nt.brecha_genero_desocupacion_bogota_pp} puntos a la masculina (${nt.td_hombres_bogota}%) en Bogotá.</div>
-        <span class="ai-badge media">🟡 Tendencia moderada</span>
-      </div>
-    `;
-  }
-
-  if (!STATE.categoryField || !Object.keys(STATE.categoryCounts).length) {
-    if (!html) el.innerHTML = '<p class="hint">Aún no hay suficientes datos para detectar tendencias.</p>';
-    else el.innerHTML = html;
-    return;
-  }
-  const total  = EMPLEO_RECORDS.length || 1;
-  const sorted = Object.entries(STATE.categoryCounts).sort((a, b) => b[1] - a[1]).slice(0, 3);
-  html += sorted.map(([val, count], i) => {
-    const share = (count / total) * 100;
-    const level = share >= 35 ? 'alta' : share >= 15 ? 'media' : 'baja';
-    return `
-      <div class="ai-card" style="animation-delay:${i * 80}ms">
-        <div class="ai-card-zone">📈 ${formatearTitulo(STATE.categoryField)}: ${val}</div>
-        <div class="ai-card-text">${count} registros geolocalizados (${share.toFixed(0)}% del total) coinciden con esta categoría.</div>
-        <span class="ai-badge ${level}">
-          ${level === 'alta' ? '🟢 Tendencia fuerte' : level === 'media' ? '🟡 Tendencia moderada' : '🔴 Tendencia emergente'}
-        </span>
-      </div>`;
-  }).join('');
-
-  el.innerHTML = html;
-}
-
-function updateAIToggleUI() {
-  const btn = document.getElementById('ai-toggle-btn');
-  if (!btn) return;
-  if (STATE.aiEnabled) {
-    btn.textContent = 'Desactivar tendencias';
-    btn.classList.remove('ai-toggle-off');
-    btn.classList.add('ai-toggle-on');
-  } else {
-    btn.textContent = 'Activar tendencias';
-    btn.classList.remove('ai-toggle-on');
-    btn.classList.add('ai-toggle-off');
-  }
-}
-
-window.toggleAI = function () {
-  STATE.aiEnabled = !STATE.aiEnabled;
-  updateAIToggleUI();
-  const trendBlock = document.getElementById('ai-insights')?.closest('.panel-block');
-  if (!STATE.aiEnabled) {
-    const emptyEl    = document.getElementById('detail-empty');
-    const detailEl   = document.getElementById('record-detail');
-    const disabledEl = document.getElementById('detail-disabled');
-    if (detailEl)   detailEl.classList.add('hidden');
-    if (emptyEl)    emptyEl.classList.add('hidden');
-    if (disabledEl) disabledEl.classList.remove('hidden');
-    if (trendBlock) trendBlock.classList.add('hidden');
-    STATE.selectedRecord = null;
-  } else {
-    const disabledEl = document.getElementById('detail-disabled');
-    const emptyEl    = document.getElementById('detail-empty');
-    if (disabledEl) disabledEl.classList.add('hidden');
-    if (emptyEl)    emptyEl.classList.remove('hidden');
-    if (trendBlock) trendBlock.classList.remove('hidden');
-  }
-};
-
-function openRecordDetail(datasetId, index) {
-  const ds     = DATASETS.find(d => d.id === datasetId);
-  const record = (DATA_CACHE[datasetId] || [])[index];
-  if (!ds || !record) return;
+function openDeptDetail(deptName) {
+  const idx = computeAllIndicators();
+  const r = idx.byDept[deptName];
+  if (!r) return;
 
   hideDetailSkeleton();
-
   document.getElementById('detail-empty')?.classList.add('hidden');
   document.getElementById('record-detail')?.classList.remove('hidden');
-  document.getElementById('detail-disabled')?.classList.add('hidden');
 
-  const nameEl = document.getElementById('d-name');
-  if (nameEl) nameEl.textContent = `${ds.name} · #${index + 1}`;
+  document.getElementById('d-name').textContent = `${deptName} · Departamento`;
 
   const verdictEl = document.getElementById('d-verdict');
-  const categoria = STATE.categoryField ? record[STATE.categoryField] : null;
-  if (verdictEl) {
-    if (categoria) {
-      const color = categoryColor(categoria);
-      verdictEl.textContent  = categoria;
-      verdictEl.style.cssText = `background:${color}1a;color:${color};border-color:${color}55;`;
-    } else {
-      verdictEl.textContent  = ds.name;
-      verdictEl.style.cssText = 'background:rgba(0,255,136,0.1);color:#00ff88;border-color:rgba(0,255,136,0.3);';
-    }
-  }
+  const v = verdictFromScore(r.geoplyScore);
+  verdictEl.textContent = `GeoPly Score ${r.geoplyScore}/100 · ${v.label}`;
+  verdictEl.style.cssText = `background:${v.color}1a;color:${v.color};border-color:${v.color}55;`;
 
-  const entries = Object.entries(record).filter(([k]) => !k.startsWith(':'));
-  const numericEntries = entries.filter(([, v]) => v !== '' && v !== null && isFinite(parseFloat(v)) && typeof v !== 'object');
+  document.getElementById('d-metrics').innerHTML = metricBoxesHtml([
+    { lbl:'DESOCUPACIÓN (TD)',    val:`${r.tasaDesempleo}%`, sub:'tasa 2025', color: colorForScore(r.geoplyScore) },
+    { lbl:'OCUPACIÓN (TO)',       val:`${r.tasaOcupacion}%`, sub:'tasa 2025', color:'#00ff88' },
+    { lbl:'PARTICIPACIÓN (TGP)',  val:`${r.tasaParticipacion}%`, sub:'tasa 2025', color:'#4fc3f7' },
+    { lbl:'SUBOCUPACIÓN (TS)',    val:`${r.tasaSubocupacion}%`, sub:'tasa 2025', color:'#ffd700' },
+    { lbl:'POBLACIÓN TOTAL',      val:r.poblacionTotal.toLocaleString(), sub:'miles de personas', color:'#a78bfa' },
+    { lbl:'POBLACIÓN OCUPADA',    val:r.poblacionOcupada.toLocaleString(), sub:'miles de personas', color:'#00ff88' },
+  ]);
 
-  const mEl = document.getElementById('d-metrics');
-  if (mEl) {
-    const metrics = [];
-    const geo = extractGeo(record);
-    let coordStr = null;
-    if (geo) {
-      coordStr = `${geo.lat.toFixed(5)}, ${geo.lng.toFixed(5)}`;
-      metrics.push({ lbl: 'UBICACIÓN', val: `${geo.lat.toFixed(2)}, ${geo.lng.toFixed(2)}`, sub: geo.approx ? 'aproximada' : 'exacta', color: '#4fc3f7' });
-    }
-    numericEntries.slice(0, 5).forEach(([k, v]) => {
-      metrics.push({ lbl: formatearTitulo(k).toUpperCase(), val: v, sub: 'valor numérico', color: '#00ff88' });
-    });
-    mEl.innerHTML = metrics.slice(0, 6).map(m => `
-      <div class="metric-box">
-        <div class="metric-label">${m.lbl}</div>
-        <div class="metric-value" style="color:${m.color}">${m.val}</div>
-        <div class="metric-sub">${m.sub}</div>
-      </div>`).join('');
-
-    if (coordStr) {
-      const coordRow = document.createElement('div');
-      coordRow.className = 'coord-row';
-      coordRow.style.cssText = 'grid-column:1 / -1; margin-top:2px;';
-      coordRow.innerHTML = `
-        <span style="font-family:var(--ff-mono); font-size:9.5px; color:var(--tx-muted);">${coordStr}</span>
-        <button class="copy-coord-btn" onclick="copiarCoordenadas('${coordStr}', this)" title="Copiar coordenadas">📋 Copiar</button>
-      `;
-      mEl.appendChild(coordRow);
-    }
-  }
-
-  const aiEl = document.getElementById('d-ai');
-  if (aiEl) {
-    const usedKeys = new Set(numericEntries.slice(0, 5).map(([k]) => k));
-    const rest     = entries.filter(([k]) => !usedKeys.has(k));
-    aiEl.innerHTML = `
-      <div class="d-ai-title">✦ DETALLE DEL REGISTRO</div>
-      ${rest.slice(0, 12).map(([k, v]) => {
-        let val = v;
-        if (val && typeof val === 'object') val = JSON.stringify(val);
-        if (val === '' || val === null || val === undefined) val = 'No especificado';
-        return `<div class="reasoning-step"><strong>${formatearTitulo(k)}:</strong> ${val}</div>`;
-      }).join('')}`;
-  }
+  const teaserEl = document.getElementById('d-teaser');
+  if (teaserEl) teaserEl.innerHTML = `<p class="hint" style="text-align:left; padding:0;">${narrativeFor('idxOportunidad', r)}</p>`;
 
   const openBtn = document.getElementById('d-open-dataset');
-  if (openBtn) openBtn.onclick = () => openDashboard(datasetId);
+  if (openBtn) openBtn.onclick = () => openDashboard(deptName);
 }
 
-window.copiarCoordenadas = function (texto, btnEl) {
-  const fallbackCopy = () => {
-    try {
-      const tmp = document.createElement('textarea');
-      tmp.value = texto;
-      tmp.style.position = 'fixed';
-      tmp.style.opacity = '0';
-      document.body.appendChild(tmp);
-      tmp.focus();
-      tmp.select();
-      document.execCommand('copy');
-      document.body.removeChild(tmp);
-      return true;
-    } catch (e) { return false; }
-  };
+function openComunaDetail(comunaName) {
+  // No hay estadísticas DANE oficiales a nivel de comuna en las fuentes cargadas;
+  // se muestra honestamente el contexto departamental (Antioquia) para no inventar cifras locales.
+  const idx = computeAllIndicators();
+  const r = idx.byDept['Antioquia'];
 
-  const marcarCopiado = () => {
-    if (!btnEl) return;
-    const original = btnEl.textContent;
-    btnEl.textContent = '✓ Copiado';
-    btnEl.classList.add('copied');
-    setTimeout(() => {
-      btnEl.textContent = original;
-      btnEl.classList.remove('copied');
-    }, 1600);
-  };
+  hideDetailSkeleton();
+  document.getElementById('detail-empty')?.classList.add('hidden');
+  document.getElementById('record-detail')?.classList.remove('hidden');
 
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(texto)
-      .then(marcarCopiado)
-      .catch(() => { if (fallbackCopy()) marcarCopiado(); });
-  } else {
-    if (fallbackCopy()) marcarCopiado();
+  document.getElementById('d-name').textContent = `${comunaName} · Comuna de Medellín`;
+
+  const verdictEl = document.getElementById('d-verdict');
+  verdictEl.textContent = 'Zona aproximada';
+  verdictEl.style.cssText = 'background:rgba(79,195,247,0.1);color:#4fc3f7;border-color:rgba(79,195,247,0.4);';
+
+  document.getElementById('d-metrics').innerHTML = metricBoxesHtml([
+    { lbl:'DESOCUPACIÓN (ANTIOQUIA)', val:`${r.tasaDesempleo}%`, sub:'referencia departamental', color:'#ffd700' },
+    { lbl:'OCUPACIÓN (ANTIOQUIA)',    val:`${r.tasaOcupacion}%`, sub:'referencia departamental', color:'#00ff88' },
+  ]);
+
+  const teaserEl = document.getElementById('d-teaser');
+  if (teaserEl) teaserEl.innerHTML = `<p class="hint" style="text-align:left; padding:0;">Las fuentes oficiales cargadas (DANE/GEIH) publican tasas laborales a nivel departamental, no por comuna. Se muestra el contexto de Antioquia como referencia más cercana disponible.</p>`;
+
+  const openBtn = document.getElementById('d-open-dataset');
+  if (openBtn) openBtn.onclick = () => openDashboard('Antioquia');
+}
+
+function buildDeptQuicklist() {
+  const el = document.getElementById('dept-quicklist');
+  if (!el || typeof DEPARTAMENTOS_EMPLEO === 'undefined') return;
+  el.innerHTML = DEPARTAMENTOS_EMPLEO
+    .slice()
+    .sort((a, b) => a.nombre.localeCompare(b.nombre))
+    .map(d => `<span class="chip off" onclick="focusDept('${d.nombre.replace(/'/g, "\\'")}')" role="button">${d.nombre}</span>`)
+    .join('');
+}
+
+window.focusDept = function (deptName) {
+  const centro = (typeof DEPARTAMENTOS_EMPLEO !== 'undefined')
+    ? DEPARTAMENTOS_EMPLEO.find(d => d.nombre === deptName) : null;
+  if (centro && MAP) MAP.flyTo([centro.lat, centro.lng], 7, { duration: 0.8 });
+  selectDept(deptName, null);
+};
+
+let howToStep = 1;
+const HOWTO_TOTAL_STEPS = 3;
+
+window.abrirHowTo = function () {
+  howToStep = 1;
+  renderHowToStep();
+  const modal = document.getElementById('modal-howto');
+  if (modal) {
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
   }
 };
 
-function calcularScoreSimulado(record) {
-  let score = 60;
-  const numVals = Object.values(record)
-    .filter(v => v !== '' && v !== null && isFinite(parseFloat(v)));
-  score += Math.min(numVals.length * 3, 20);
-  const catVal = STATE.categoryField ? record[STATE.categoryField] : null;
-  if (catVal) score += 10;
-  return Math.min(score, 100);
+window.cerrarHowTo = function () {
+  const modal = document.getElementById('modal-howto');
+  if (modal) modal.classList.add('hidden');
+  document.body.style.overflow = '';
+};
+
+window.irPasoHowTo = function (n) {
+  howToStep = Math.min(Math.max(n, 1), HOWTO_TOTAL_STEPS);
+  renderHowToStep();
+};
+
+window.pasoSiguienteHowTo = function () {
+  if (howToStep >= HOWTO_TOTAL_STEPS) { cerrarHowTo(); return; }
+  howToStep++;
+  renderHowToStep();
+};
+
+window.pasoAnteriorHowTo = function () {
+  if (howToStep <= 1) return;
+  howToStep--;
+  renderHowToStep();
+};
+
+function renderHowToStep() {
+  document.querySelectorAll('.howto-step').forEach(stepEl => {
+    stepEl.classList.toggle('active', Number(stepEl.dataset.step) === howToStep);
+  });
+  document.querySelectorAll('.howto-dot').forEach(dotEl => {
+    dotEl.classList.toggle('active', Number(dotEl.dataset.dot) === howToStep);
+  });
+
+  const prevBtn = document.getElementById('howto-prev');
+  const nextBtn = document.getElementById('howto-next');
+  if (prevBtn) prevBtn.disabled = howToStep === 1;
+  if (nextBtn) nextBtn.textContent = howToStep === HOWTO_TOTAL_STEPS ? 'Entendido ✓' : 'Siguiente →';
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.getElementById('modal-howto');
+  if (el) {
+    el.addEventListener('click', function (e) {
+      if (e.target === el) cerrarHowTo();
+    });
+  }
+});
+
+// ------------------------------------------------------------------
+// Modal "Soy Aspirante" — sin cambios de lógica respecto a la versión anterior
+// ------------------------------------------------------------------
 
 window.abrirModal = function (id) {
   const modal = document.getElementById(id);
@@ -900,92 +546,3 @@ window.registrarAspirante = async function (e) {
     btn.classList.remove('loading');
   }
 };
-
-window.toggleLayer = function (key) {
-  if (!(key in STATE.layers)) return;
-  STATE.layers[key] = !STATE.layers[key];
-  const isOn = STATE.layers[key];
-
-  const toggleEl = document.getElementById(`toggle-${key}`);
-  const labelEl  = document.getElementById(`layer-label-${key}`);
-  if (toggleEl) {
-    toggleEl.classList.toggle('on', isOn);
-    toggleEl.classList.toggle('off', !isOn);
-    toggleEl.setAttribute('aria-checked', String(isOn));
-    const knob = toggleEl.querySelector('.toggle-knob');
-    if (knob) {
-      knob.classList.toggle('on', isOn);
-      knob.classList.toggle('off', !isOn);
-    }
-  }
-  if (labelEl) {
-    labelEl.classList.toggle('on', isOn);
-    labelEl.classList.toggle('off', !isOn);
-  }
-
-  if (key === 'departamentos') {
-    renderDepartamentos();
-  } else {
-    buildMapLayers();
-  }
-  buildLegendCategories();
-};
-
-let howToStep = 1;
-const HOWTO_TOTAL_STEPS = 3;
-
-window.abrirHowTo = function () {
-  howToStep = 1;
-  renderHowToStep();
-  const modal = document.getElementById('modal-howto');
-  if (modal) {
-    modal.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-  }
-};
-
-window.cerrarHowTo = function () {
-  const modal = document.getElementById('modal-howto');
-  if (modal) modal.classList.add('hidden');
-  document.body.style.overflow = '';
-};
-
-window.irPasoHowTo = function (n) {
-  howToStep = Math.min(Math.max(n, 1), HOWTO_TOTAL_STEPS);
-  renderHowToStep();
-};
-
-window.pasoSiguienteHowTo = function () {
-  if (howToStep >= HOWTO_TOTAL_STEPS) { cerrarHowTo(); return; }
-  howToStep++;
-  renderHowToStep();
-};
-
-window.pasoAnteriorHowTo = function () {
-  if (howToStep <= 1) return;
-  howToStep--;
-  renderHowToStep();
-};
-
-function renderHowToStep() {
-  document.querySelectorAll('.howto-step').forEach(stepEl => {
-    stepEl.classList.toggle('active', Number(stepEl.dataset.step) === howToStep);
-  });
-  document.querySelectorAll('.howto-dot').forEach(dotEl => {
-    dotEl.classList.toggle('active', Number(dotEl.dataset.dot) === howToStep);
-  });
-
-  const prevBtn = document.getElementById('howto-prev');
-  const nextBtn = document.getElementById('howto-next');
-  if (prevBtn) prevBtn.disabled = howToStep === 1;
-  if (nextBtn) nextBtn.textContent = howToStep === HOWTO_TOTAL_STEPS ? 'Entendido ✓' : 'Siguiente →';
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  const el = document.getElementById('modal-howto');
-  if (el) {
-    el.addEventListener('click', function (e) {
-      if (e.target === el) cerrarHowTo();
-    });
-  }
-});

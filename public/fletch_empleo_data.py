@@ -22,7 +22,6 @@ DATASETS = [
 BASE_URL = "https://www.datos.gov.co/resource/{id}.json?$limit={limit}"
 TIMEOUT = 20
 
-
 def fetch_dataset(dataset_id: str, limit: int):
     """Consulta un dataset vía la SODA API (GET simple, sin llaves)."""
     url = BASE_URL.format(id=dataset_id, limit=limit)
@@ -39,7 +38,6 @@ def fetch_dataset(dataset_id: str, limit: int):
         print(f"  ⚠ Error inesperado para {dataset_id}: {e}")
     return None
 
-
 def summarize_fields(records):
     """Devuelve un resumen de campos: nombre -> tipo de ejemplo + ejemplo de valor."""
     fields = {}
@@ -54,7 +52,6 @@ def summarize_fields(records):
                     "ejemplo": str(sample)[:60],
                 }
     return fields
-
 
 def main():
     parser = argparse.ArgumentParser(description="Inspecciona/cachea los datasets de empleo de datos.gov.co")
@@ -100,7 +97,6 @@ def main():
     print("  2. Si un dataset usa nombres de columnas de geolocalización distintos")
     print("     (ej. 'cod_dpto', 'nombre_depto'), agrégalos a las listas")
     print("     CITY_KEYS / DEPT_KEYS / LAT_KEYS / LNG_KEYS en geo-data.js.")
-
 
 if __name__ == "__main__":
     sys.exit(main())
