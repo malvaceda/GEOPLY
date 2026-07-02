@@ -312,11 +312,24 @@ function showEducationPanel(view) {
 
 function goHome() {
   closeCurrentPage();
+  if (typeof closeDashboard === 'function') closeDashboard();
+
   const panel = document.getElementById('hero-panel');
   const reopen = document.getElementById('hero-reopen');
-  if (panel) panel.classList.remove('hidden');
+  if (panel) {
+    panel.classList.remove('hidden');
+    panel.classList.remove('collapsed');
+    panel.classList.remove('is-collapsed');
+    panel.querySelector('.hero-panel-body')?.classList.remove('hidden');
+  }
   if (reopen) reopen.classList.add('hidden');
-  if (MAP) MAP.flyTo(MAP_CENTER, MAP_ZOOM, { duration: 0.8 });
+
+  if (MAP) {
+    MAP.stop();
+    MAP.setView(MAP_CENTER, MAP_ZOOM, { animate: false });
+  }
+
+  document.body.style.overflow = '';
 }
 
 function showToast(message) {

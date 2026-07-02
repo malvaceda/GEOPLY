@@ -25,12 +25,6 @@
 --border:#E2E8F0;
 --border-hover:#CBD5E1;
 
-/*======================================================
-COMPATIBILIDAD CON EL SISTEMA ANTERIOR
-======================================================*/
-
-/* Fondos */
-
 --bg-base:var(--background);
 
 --bg-surface:var(--surface);
@@ -39,15 +33,12 @@ COMPATIBILIDAD CON EL SISTEMA ANTERIOR
 
 --bg-hover:var(--surface-soft);
 
-/* Texto */
-
 --tx-primary:var(--text);
 
 --tx-secondary:var(--text-secondary);
 
 --tx-muted:var(--text-light);
 
-/* Bordes */
 
 --b-subtle:var(--border);
 
@@ -57,13 +48,9 @@ COMPATIBILIDAD CON EL SISTEMA ANTERIOR
 
 --b-bright:#D7E2F0;
 
-/* Tipografía */
-
 --ff-body:var(--font-main);
 
 --ff-mono:var(--font-mono);
-
-/* Compatibilidad */
 
 --radius:var(--radius-md);
 
@@ -74,8 +61,6 @@ COMPATIBILIDAD CON EL SISTEMA ANTERIOR
 --ease:var(--transition);
 
 --fast:.25s ease;
-
-/* Colores heredados */
 
 --mde-neon:var(--primary);
 
@@ -93,19 +78,11 @@ COMPATIBILIDAD CON EL SISTEMA ANTERIOR
 
 --red:#EF4444;
 
-/*=======================
-        MAPA
-========================*/
-
 --map-shadow:
 0 15px 45px rgba(15,23,42,.08);
 
 --map-border:
 1px solid rgba(255,255,255,.65);
-
-/*=======================
-        SOMBRAS
-========================*/
 
 --shadow-xs:
 0 1px 2px rgba(15,23,42,.05);
@@ -122,20 +99,12 @@ COMPATIBILIDAD CON EL SISTEMA ANTERIOR
 --shadow-xl:
 0 30px 80px rgba(15,23,42,.12);
 
-/*=======================
-        RADIOS
-========================*/
-
 --radius-xs:8px;
 --radius-sm:12px;
 --radius-md:18px;
 --radius-lg:24px;
 --radius-xl:32px;
 --radius-full:999px;
-
-/*=======================
-        ESPACIADOS
-========================*/
 
 --space-1:4px;
 --space-2:8px;
@@ -148,17 +117,9 @@ COMPATIBILIDAD CON EL SISTEMA ANTERIOR
 --space-9:56px;
 --space-10:72px;
 
-/*=======================
-        HEADER
-========================*/
-
 --header-height:74px;
 
 --sidebar-width:340px;
-
-/*=======================
-        TIPOGRAFÍA
-========================*/
 
 --font-main:'Manrope',sans-serif;
 --font-title:'Plus Jakarta Sans',sans-serif;
@@ -1741,9 +1702,6 @@ box-shadow:0 0 0 rgba(79,70,229,.2);
   cursor: not-allowed;
   pointer-events: none;
 }
-/*======================================================
-HEADER PREMIUM
-======================================================*/
 
 .app-header{
 
