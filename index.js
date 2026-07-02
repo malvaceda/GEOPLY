@@ -8,6 +8,13 @@ const port = 3000;
 // Hacer conexión MySQL
 const pool = mysql.createPool(config.db);
 
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
+
 // Servir archivos estáticos como index.html desde una carpeta llamada "public"
 app.use(express.static('public'));
 
