@@ -1111,15 +1111,22 @@ function colorForScore(score) {
   return '#ff5252';
 }
 
+function colorForDept(deptName) {
+  const safeName = String(deptName || '').trim();
+  let hash = 0;
+  for (let i = 0; i < safeName.length; i += 1) {
+    hash = (hash * 31 + safeName.charCodeAt(i)) % 360;
+  }
+  const hue = (hash + 37) % 360;
+  return `hsl(${hue} 70% 58%)`;
+}
+
 function buildDeptStyle(deptName, isActive) {
-  const idx = computeAllIndicators();
-  const r = idx.byDept[deptName];
-  const score = r ? r.geoplyScore : 50;
   return {
     color: isActive ? '#ffffff' : 'rgba(255,255,255,0.35)',
     weight: isActive ? 2.4 : 1,
-    fillColor: colorForScore(score),
-    fillOpacity: isActive ? 0.55 : 0.32,
+    fillColor: colorForDept(deptName),
+    fillOpacity: isActive ? 0.72 : 0.42,
   };
 }
 
