@@ -22,7 +22,7 @@ const DATA_STATUS = {};
 let EMPLEO_RECORDS = [];
 let LAST_API_SYNC = null;
 
-let activeDashDept = null; // nombre del departamento activo en el Panel de Empleo
+let activeDashDept = null;
 
 function buildResourceUrl(id) {
   return `https://www.datos.gov.co/resource/${id}.json?$limit=${RECORD_LIMIT}`;
@@ -62,8 +62,6 @@ async function loadAllDatasets() {
       loaded++;
     }
 
-    // Re-computar de forma incremental para que el mapa se vaya afinando
-    // a medida que llegan más fuentes (transformación en vivo).
     buildEmpleoRecords();
     if (typeof invalidateIndicatorsCache === 'function') invalidateIndicatorsCache();
     if (typeof refreshDeptStyles === 'function') refreshDeptStyles();
@@ -105,10 +103,6 @@ function formatearTitulo(texto) {
     .replaceAll('.', ' ')
     .toLowerCase();
 }
-
-// ------------------------------------------------------------------
-// Apertura / cierre del Panel de Empleo
-// ------------------------------------------------------------------
 
 window.openDashboard = function (deptName) {
   const overlay = document.getElementById('dashboard-overlay');
@@ -152,10 +146,6 @@ window.onDashSearchInput = function () {
   }
 };
 
-// ------------------------------------------------------------------
-// Filtro por área de interés (mismas 9 áreas del formulario de aspirante)
-// ------------------------------------------------------------------
-
 function buildAreaChips() {
   const el = document.getElementById('dash-area-chips');
   if (!el || typeof AREAS_INTERES === 'undefined') return;
@@ -176,10 +166,6 @@ window.setDashArea = function (areaId) {
   buildAreaChips();
   renderDeptDashboard(activeDashDept);
 };
-
-// ------------------------------------------------------------------
-// Render del tablero de 15 variables para el departamento activo
-// ------------------------------------------------------------------
 
 function renderDeptDashboard(deptName) {
   const contenedor = document.getElementById('dash-contenedor');
