@@ -4,13 +4,13 @@ window.__geoInitStatus = 'script-loaded';
 console.log('[GeoPly] app.js loaded');
 
 const MAP_CENTER = [4.5709, -74.2973];
-const MAP_ZOOM   = 5;
-const MEDELLIN_ZOOM_THRESHOLD = 9.2; // a partir de este zoom se muestran las comunas de Medellín
+const MAP_ZOOM   = 4;
+const MEDELLIN_ZOOM_THRESHOLD = 5;
 
 const STATE = {
-  selectedDept:     null,   // nombre del departamento activo
-  selectedComuna:   null,   // nombre de la comuna de Medellín activa (si aplica)
-  selectedArea:     'all',  // área de interés activa (para el panel de empleo)
+  selectedDept:     null,
+  selectedComuna:   null,
+  selectedArea:     'all',
   sidebarLeftOpen:  false,
   sidebarRightOpen: false,
   heroCollapsed: false,
@@ -130,7 +130,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function refreshLastSyncLabel() {
-  // Reservado para futuros indicadores de frescura de datos en el panel de empleo.
 }
 
 function showError() {
@@ -207,7 +206,7 @@ function stampPerf() {
 }
 
 window.resetView = function () {
-  if (MAP) MAP.flyTo(MAP_CENTER, MAP_ZOOM, { duration: 0.9 });
+  if (MAP) MAP.flyTo([4.5709, -74.2973], 6, { duration: 0.9 });
 };
 
 function setSidebarState(side, open) {
@@ -1079,19 +1078,19 @@ function renderCompanyVacancies() {
 
 function selectDeptFromSearch(deptName) {
   if (deptName && MAP) {
-    const centro = (typeof DEPARTAMENTOS_EMPLEO !== 'undefined')
-      ? DEPARTAMENTOS_EMPLEO.find(d => d.nombre === deptName) : null;
-    if (centro) {
-      MAP.flyTo([centro.lat, centro.lng], 7, { duration: 0.8 });
-    } else {
-      const fallback = DEPARTAMENTOS_LIST.find(d => normalizeKey(d) === normalizeKey(deptName));
-      if (fallback) {
-        const guessed = DEPARTAMENTOS_EMPLEO.find(d => normalizeKey(d.nombre) === normalizeKey(fallback));
-        if (guessed) MAP.flyTo([guessed.lat, guessed.lng], 7, { duration: 0.8 });
-      }
-    }
+    fitDeptBounds(deptName);
     selectDept(deptName, null);
     showToast(`Mostrando ${deptName}`);
+  }
+}
+
+function fitDeptBounds(deptName) {
+  if (!MAP || typeof DEPT_BOUNDARIES === 'undefined') return;
+  const feature = DEPT_BOUNDARIES.features.find(f => f.properties.nombre === deptName);
+  if (feature) {
+    const geojsonLayer = L.geoJSON(feature);
+    const bounds = geojsonLayer.getBounds();
+    MAP.fitBounds(bounds, { padding: [0, 0, 0, 0], duration: 800 });
   }
 }
 
@@ -1250,6 +1249,9 @@ function metricBoxesHtml(list) {
 }
 
 function openDeptDetail(deptName) {
+  const sidebarRight = document.querySelector('.sidebar-right');
+  if (sidebarRight) sidebarRight.scrollTop = 0;
+
   const idx = computeAllIndicators();
   const r = idx.byDept[deptName];
   if (!r) return;
@@ -1282,6 +1284,9 @@ function openDeptDetail(deptName) {
 }
 
 function openComunaDetail(comunaName) {
+  const sidebarRight = document.querySelector('.sidebar-right');
+  if (sidebarRight) sidebarRight.scrollTop = 0;
+
   // No hay estadísticas DANE oficiales a nivel de comuna en las fuentes cargadas;
   // se muestra honestamente el contexto departamental (Antioquia) para no inventar cifras locales.
   const idx = computeAllIndicators();
