@@ -115,7 +115,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.__geoInitStatus = 'calling-init-map';
     initMap();
     loadAllDatasets();
-    buildDeptQuicklist();
     initInteractivePanels();
     initSearch();
     initCompanyPanel();
