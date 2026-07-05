@@ -110,7 +110,6 @@ window.openDashboard = function (deptName) {
   overlay.classList.remove('hidden');
 
   buildDashDeptOptions();
-  buildAreaChips();
 
   activeDashDept = deptName || activeDashDept || (
     typeof STATE !== 'undefined' && STATE.selectedDept ? STATE.selectedDept : DEPARTAMENTOS_EMPLEO[0].nombre
@@ -146,26 +145,22 @@ window.onDashSearchInput = function () {
   }
 };
 
-function buildAreaChips() {
-  const el = document.getElementById('dash-area-chips');
-  if (!el || typeof AREAS_INTERES === 'undefined') return;
-  const state = (typeof STATE !== 'undefined') ? STATE : { selectedArea: 'all' };
-  const chips = [{ id: 'all', label: 'Todas' }, ...AREAS_INTERES];
-  el.innerHTML = chips.map(a => {
-    const on = state.selectedArea === a.id;
-    const color = a.id === 'all' ? 'var(--mde-neon)' : (a.color || 'var(--mde-neon)');
-    return `
-      <span class="chip ${on ? 'on' : 'off'}" onclick="setDashArea('${a.id}')" role="button">
-        <span class="chip-dot" style="background:${color}"></span>${a.label}
-      </span>`;
-  }).join('');
+function buildSpeExploreCard(deptName) {
+  const speUrl = 'https://www.buscadordeempleo.gov.co/#/home';
+  return `
+    <article class="dash-card chart-card chart-card-wide spe-explore-card">
+      <h3>¿Buscas un sector específico? Explóralo en la fuente oficial</h3>
+      <p class="hint spe-cta-text">
+        GeoPly todavía no tiene un dato oficial que cruce sector económico y departamento
+        ${deptName ? `para <strong>${deptName}</strong>` : ''} — esa combinación no se publica hoy como dato abierto.
+        Si quieres profundizar por tu cuenta en un sector puntual (tecnología, salud, agro, etc.),
+        el Servicio Público de Empleo permite filtrar vacantes reales por departamento y sector:
+      </p>
+      <a class="btn-ver-mas" href="${speUrl}" target="_blank" rel="noopener noreferrer">
+        Ir al buscador del SPE →
+      </a>
+    </article>`;
 }
-
-window.setDashArea = function (areaId) {
-  if (typeof STATE !== 'undefined') STATE.selectedArea = areaId;
-  buildAreaChips();
-  renderDeptDashboard(activeDashDept);
-};
 
 function renderDeptDashboard(deptName) {
   const contenedor = document.getElementById('dash-contenedor');
@@ -189,16 +184,14 @@ function renderDeptDashboard(deptName) {
     estado.innerHTML = `${deptName} · GeoPly Score <strong style="color:${v.color}">${r.geoplyScore}/100</strong> · ${v.label} · ${r.registrosAsignados} registros de API asignados a la zona`;
   }
 
-  const areaId = (typeof STATE !== 'undefined') ? STATE.selectedArea : 'all';
-
   let html = '';
   html += buildScoreOverviewCard(r);
   html += buildStatCard('idxOportunidad', r, { val: `${r.idxOportunidad}/100`, color: colorForScore(r.geoplyScore) });
   html += buildRatesCard(r);
   html += buildInformalidadCard(r);
   html += buildCrecimientoCard(r);
-  html += buildSectoresCard('sectoresDemanda', r, areaId, 'Sectores con Mayor Demanda');
-  html += buildSectoresCard('sectoresEmergentes', r, areaId, 'Sectores Emergentes (cociente de localización)');
+  html += buildSectoresCard('sectoresDemanda', r, 'Sectores con Mayor Demanda');
+  html += buildSectoresCard('sectoresEmergentes', r, 'Sectores Emergentes (cociente de localización)');
   html += buildCategoricalCard('nivelEducativo', r);
   html += buildPctCard('insercionJuvenil', r);
   html += buildGeneroCard(r);
@@ -206,6 +199,7 @@ function renderDeptDashboard(deptName) {
   html += buildDinamicaCard(r);
   html += buildCompetitividadCard(r);
   html += buildTendenciaCard(r);
+  html += buildSpeExploreCard(r.deptName);
 
   contenedor.innerHTML = html;
 }
@@ -305,7 +299,7 @@ function buildCrecimientoCard(r) {
   `;
 }
 
-function buildSectoresCard(varKey, r, areaId, titulo) {
+function buildSectoresCard(varKey, r, titulo) {
   const list = r[varKey] || [];
   if (!list.length) {
     return `
@@ -317,12 +311,11 @@ function buildSectoresCard(varKey, r, areaId, titulo) {
   }
   const max = Math.max(...list.map(s => s.count), 1);
   const bars = list.map((s, i) => {
-    const isMatch = areaId !== 'all' && matchesAreaKeyword(s.label, areaId);
-    const color = isMatch ? '#00ff88' : CHART_COLORS_LOCAL[i % CHART_COLORS_LOCAL.length];
+    const color = CHART_COLORS_LOCAL[i % CHART_COLORS_LOCAL.length];
     const extra = s.pct !== undefined ? `${s.pct}%` : `LQ ${s.lq}`;
     return `
       <div class="chart-bar-row">
-        <span class="chart-bar-label" title="${s.label}" style="${isMatch ? 'color:var(--mde-neon); font-weight:600;' : ''}">${s.label}${isMatch ? ' ★' : ''}</span>
+        <span class="chart-bar-label" title="${s.label}">${s.label}</span>
         <div class="chart-bar-track"><div class="chart-bar-fill" style="width:${(s.count/max*100).toFixed(0)}%;background:${color}"></div></div>
         <span class="chart-bar-val">${extra}</span>
       </div>`;
@@ -331,7 +324,6 @@ function buildSectoresCard(varKey, r, areaId, titulo) {
     <article class="dash-card chart-card chart-card-wide">
       <h3>${titulo}</h3>
       <div class="chart-bars">${bars}</div>
-      ${areaId !== 'all' ? `<p class="hint" style="text-align:left;padding-top:8px;">★ = coincide con el área de interés filtrada.</p>` : ''}
       ${narrativeToggleHtml(varKey, r, varKey)}
     </article>
   `;
