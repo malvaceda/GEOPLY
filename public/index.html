@@ -341,10 +341,6 @@ Soy empresa
         <button class="modal-close" onclick="cerrarModales()" aria-label="Cerrar">✕</button>
       </div>
       <div class="modal-body">
-        <div class="company-switcher">
-          <button class="company-switch active" id="company-switch-login" type="button" onclick="showCompanyAuthView('login')">Iniciar sesión</button>
-          <button class="company-switch" id="company-switch-register" type="button" onclick="showCompanyAuthView('register')">Registrar empresa</button>
-        </div>
 
         <div id="company-auth-login" class="company-view">
           <form id="form-company-login" onsubmit="iniciarSesionEmpresa(event)">
@@ -393,7 +389,7 @@ Soy empresa
         <div id="company-dashboard" class="company-view hidden">
           <div class="company-dashboard-card">
             <div class="company-dashboard-title" id="company-dashboard-title">Panel de empresa</div>
-            <div class="company-dashboard-copy" id="company-dashboard-copy">Gestiona tu perfil y publica vacantes.</div>
+            <div class="company-dashboard-copy" id="company-dashboard-copy">Gestiona tu perfil</div>
           </div>
           <div class="company-dashboard-actions">
             <button class="hero-secondary" type="button" onclick="editarEmpresaActual()">Editar información</button>
@@ -548,7 +544,6 @@ Soy empresa
                    placeholder="Buscar departamento o zona…" oninput="onDashSearchInput()" />
             <datalist id="dash-dept-options"></datalist>
           </div>
-          <div class="filter-chips" id="dash-area-chips"></div>
           <span id="dash-estado" class="dash-estado">Selecciona un departamento</span>
           <button class="dash-return-btn" type="button" onclick="goHome()">← Volver al mapa</button>
         </div>

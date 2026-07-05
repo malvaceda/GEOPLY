@@ -2091,3 +2091,22 @@ background:var(--primary-dark);
   border-radius: 999px;
   box-shadow: 0 16px 36px rgba(15,23,42,0.2);
 }
+.spe-cta { display:flex; flex-direction:column; gap:8px; padding:10px 12px; background:var(--bg-base); border:1px solid var(--b-subtle); border-radius:var(--radius-sm); }
+.spe-cta-text { margin:0; text-align:left; line-height:1.5; }
+.spe-explore-card { border-style:dashed; border-color:var(--b-subtle); }
+.spe-explore-card h3 { color:var(--tx-muted); }
+.btn-ver-mas {
+  align-self:flex-start;
+  font-family: var(--ff-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--mde-green);
+  background: var(--mde-dim);
+  color: var(--mde-neon);
+  text-decoration: none;
+  transition: all var(--fast);
+}
+.btn-ver-mas:hover { background:rgba(0,138,69,0.3); }
