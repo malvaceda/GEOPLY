@@ -146,7 +146,7 @@ window.onDashSearchInput = function () {
 };
 
 function buildSpeExploreCard(deptName) {
-  const speUrl = 'https://www.buscadordeempleo.gov.co/#/home';
+  const speUrl = 'https://www.serviciodeempleo.gov.co/busca-empleo/';
   return `
     <article class="dash-card chart-card chart-card-wide spe-explore-card">
       <h3>¿Buscas un sector específico? Explóralo en la fuente oficial</h3>
