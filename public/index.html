@@ -343,8 +343,6 @@ Soy empresa
       </div>
       <div class="modal-body">
         <div class="company-switcher">
-          <button class="company-switch active" id="company-switch-login" type="button" onclick="showCompanyAuthView('login')">Iniciar sesión</button>
-          <button class="company-switch" id="company-switch-register" type="button" onclick="showCompanyAuthView('register')">Registrar empresa</button>
         </div>
 
         <div id="company-auth-login" class="company-view">
@@ -394,7 +392,7 @@ Soy empresa
         <div id="company-dashboard" class="company-view hidden">
           <div class="company-dashboard-card">
             <div class="company-dashboard-title" id="company-dashboard-title">Panel de empresa</div>
-            <div class="company-dashboard-copy" id="company-dashboard-copy">Gestiona tu perfil y publica vacantes.</div>
+            <div class="company-dashboard-copy" id="company-dashboard-copy">Gestiona tu perfil.</div>
           </div>
           <div class="company-dashboard-actions">
             <button class="hero-secondary" type="button" onclick="editarEmpresaActual()">Editar información</button>
@@ -473,7 +471,7 @@ Soy empresa
         <div class="howto-steps" id="howto-steps">
 
           <div class="howto-step active" data-step="1">
-            <div class="howto-step-icon">🗺️</div>
+            <div class="howto-step-icon"><img src="colombia.png" alt="Mapa de Colombia" class="howto-media-image"></div>
             <div class="howto-step-title">1. Lee los colores del mapa</div>
             <div class="howto-step-text">
               Cada departamento se pinta según su GeoPly Score: <strong style="color:#00ff88">verde</strong> es
@@ -484,7 +482,9 @@ Soy empresa
           </div>
 
           <div class="howto-step" data-step="2">
-            <div class="howto-step-icon">🎯</div>
+            <div class="howto-step-icon">
+              <video class="howto-media-video" src="departamentos.mp4" muted autoplay loop playsinline></video>
+            </div>
             <div class="howto-step-title">2. Haz clic en un departamento</div>
             <div class="howto-step-text">
               Al hacer clic (o buscar su nombre arriba con la lupa) se abre un panel con las
@@ -494,7 +494,9 @@ Soy empresa
           </div>
 
           <div class="howto-step" data-step="3">
-            <div class="howto-step-icon">✅</div>
+            <div class="howto-step-icon">
+              <video class="howto-media-video" src="panel.mp4" muted autoplay loop playsinline></video>
+            </div>
             <div class="howto-step-title">3. Profundiza en el Panel de Empleo</div>
             <div class="howto-step-text">
               Desde ahí entra a "Panel de Empleo" para ver las 15 variables del modelo GeoPly

@@ -282,6 +282,10 @@ function openHeroPanel() {
     panel.querySelector('.hero-panel-body')?.classList.remove('hidden');
     panel.classList.remove('is-collapsed');
     panel.classList.remove('hidden');
+    panel.classList.add('hero-enter');
+    panel.addEventListener('animationend', () => {
+      panel.classList.remove('hero-enter');
+    }, { once: true });
     STATE.heroCollapsed = false;
   }
   if (reopen) reopen.classList.add('hidden');
@@ -351,15 +355,7 @@ function goHome() {
   closeCurrentPage();
   if (typeof closeDashboard === 'function') closeDashboard();
 
-  const panel = document.getElementById('hero-panel');
-  const reopen = document.getElementById('hero-reopen');
-  if (panel) {
-    panel.classList.remove('hidden');
-    panel.classList.remove('collapsed');
-    panel.classList.remove('is-collapsed');
-    panel.querySelector('.hero-panel-body')?.classList.remove('hidden');
-  }
-  if (reopen) reopen.classList.add('hidden');
+  openHeroPanel();
 
   if (MAP) {
     MAP.stop();
@@ -735,113 +731,128 @@ function buildLearningGuidePage() {
 
 function buildEmploymentGuidePage() {
   const saved = JSON.parse(localStorage.getItem('geoply_aspirante') || 'null');
+  const hasSaved = Boolean(saved && Object.keys(saved).length);
+  const editingEnabled = hasSaved ? Boolean(STATE.guiaEmpleoEditing) : true;
+  if (!hasSaved) STATE.guiaEmpleoEditing = true;
+  const readOnly = hasSaved && !editingEnabled;
+  const disabledAttr = readOnly ? 'disabled' : '';
+  const editButton = hasSaved ? `
+            <button type="button" id="employment-form-edit-btn" class="form-submit secondary" onclick="toggleEmploymentFormEdit()" ${editingEnabled ? 'disabled' : ''}>
+              ${editingEnabled ? 'Edición activa' : 'Editar perfil'}
+            </button>` : '';
+
   return `
     <div class="page-grid page-grid-single">
       <article class="page-card">
-        <h3>Formulario de orientación laboral</h3>
-        <p>Completa tu perfil y ayuda a GeoPly a recomendarte mejores oportunidades.</p>
-        <form id="employment-form" class="full-form" onsubmit="handleEmploymentForm(event)">
+        <div class="page-card-header">
+          <div>
+            <h3>Formulario de orientación laboral</h3>
+            <p>Completa tu perfil y ayuda a GeoPly a recomendarte mejores oportunidades.</p>
+          </div>
+          ${editButton}
+        </div>
+        <form id="employment-form" class="full-form${readOnly ? ' read-only-form' : ''}" onsubmit="handleEmploymentForm(event)">
           <div class="form-row">
             <div class="form-group">
               <label class="form-label" for="guide-nombre">Nombre</label>
-              <input class="form-input" id="guide-nombre" name="nombre" value="${saved?.nombre || ''}" required />
+              <input class="form-input" id="guide-nombre" name="nombre" value="${saved?.nombre || ''}" required ${disabledAttr} />
             </div>
             <div class="form-group">
               <label class="form-label" for="guide-apellidos">Apellidos</label>
-              <input class="form-input" id="guide-apellidos" name="apellidos" value="${saved?.apellidos || ''}" required />
+              <input class="form-input" id="guide-apellidos" name="apellidos" value="${saved?.apellidos || ''}" required ${disabledAttr} />
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label" for="guide-edad">Edad</label>
-              <input class="form-input" id="guide-edad" name="edad" type="number" min="14" max="70" value="${saved?.edad || ''}" />
+              <input class="form-input" id="guide-edad" name="edad" type="number" min="14" max="70" value="${saved?.edad || ''}" ${disabledAttr} />
             </div>
             <div class="form-group">
               <label class="form-label" for="guide-ciudad">Ciudad</label>
-              <input class="form-input" id="guide-ciudad" name="ciudad" value="${saved?.ciudad || ''}" />
+              <input class="form-input" id="guide-ciudad" name="ciudad" value="${saved?.ciudad || ''}" ${disabledAttr} />
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label" for="guide-departamento">Departamento</label>
-              <input class="form-input" id="guide-departamento" name="departamento" value="${saved?.departamento || ''}" />
+              <input class="form-input" id="guide-departamento" name="departamento" value="${saved?.departamento || ''}" ${disabledAttr} />
             </div>
             <div class="form-group">
               <label class="form-label" for="guide-correo">Correo</label>
-              <input class="form-input" id="guide-correo" name="correo" type="email" value="${saved?.correo || ''}" required />
+              <input class="form-input" id="guide-correo" name="correo" type="email" value="${saved?.correo || ''}" required ${disabledAttr} />
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label" for="guide-telefono">Teléfono</label>
-              <input class="form-input" id="guide-telefono" name="telefono" value="${saved?.telefono || ''}" />
+              <input class="form-input" id="guide-telefono" name="telefono" value="${saved?.telefono || ''}" ${disabledAttr} />
             </div>
             <div class="form-group">
               <label class="form-label" for="guide-nivel">Nivel educativo</label>
-              <input class="form-input" id="guide-nivel" name="nivelEducativo" value="${saved?.nivelEducativo || ''}" />
+              <input class="form-input" id="guide-nivel" name="nivelEducativo" value="${saved?.nivelEducativo || ''}" ${disabledAttr} />
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label" for="guide-colegio">Colegio</label>
-              <input class="form-input" id="guide-colegio" name="colegio" value="${saved?.colegio || ''}" />
+              <input class="form-input" id="guide-colegio" name="colegio" value="${saved?.colegio || ''}" ${disabledAttr} />
             </div>
             <div class="form-group">
               <label class="form-label" for="guide-universidad">Universidad</label>
-              <input class="form-input" id="guide-universidad" name="universidad" value="${saved?.universidad || ''}" />
+              <input class="form-input" id="guide-universidad" name="universidad" value="${saved?.universidad || ''}" ${disabledAttr} />
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label" for="guide-tecnico">Técnico</label>
-              <input class="form-input" id="guide-tecnico" name="tecnico" value="${saved?.tecnico || ''}" />
+              <input class="form-input" id="guide-tecnico" name="tecnico" value="${saved?.tecnico || ''}" ${disabledAttr} />
             </div>
             <div class="form-group">
               <label class="form-label" for="guide-tecnologo">Tecnólogo</label>
-              <input class="form-input" id="guide-tecnologo" name="tecnologo" value="${saved?.tecnologo || ''}" />
+              <input class="form-input" id="guide-tecnologo" name="tecnologo" value="${saved?.tecnologo || ''}" ${disabledAttr} />
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label" for="guide-carrera">Carrera</label>
-              <input class="form-input" id="guide-carrera" name="carrera" value="${saved?.carrera || ''}" />
+              <input class="form-input" id="guide-carrera" name="carrera" value="${saved?.carrera || ''}" ${disabledAttr} />
             </div>
             <div class="form-group">
               <label class="form-label" for="guide-semestre">Semestre</label>
-              <input class="form-input" id="guide-semestre" name="semestre" value="${saved?.semestre || ''}" />
+              <input class="form-input" id="guide-semestre" name="semestre" value="${saved?.semestre || ''}" ${disabledAttr} />
             </div>
           </div>
           <div class="form-group">
             <label class="form-label" for="guide-cursos">Cursos realizados</label>
-            <textarea class="form-textarea" id="guide-cursos" name="cursos" placeholder="Coursera, Excel, diseño, IA...">${saved?.cursos || ''}</textarea>
+            <textarea class="form-textarea" id="guide-cursos" name="cursos" placeholder="Coursera, Excel, diseño, IA..." ${disabledAttr}>${saved?.cursos || ''}</textarea>
           </div>
           <div class="form-group">
             <label class="form-label" for="guide-experiencia">Experiencia</label>
-            <textarea class="form-textarea" id="guide-experiencia" name="experiencia" placeholder="Experiencia laboral o práctica profesional">${saved?.experiencia || ''}</textarea>
+            <textarea class="form-textarea" id="guide-experiencia" name="experiencia" placeholder="Experiencia laboral o práctica profesional" ${disabledAttr}>${saved?.experiencia || ''}</textarea>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label" for="guide-areas">Áreas de interés</label>
-              <input class="form-input" id="guide-areas" name="areasInteres" value="${saved?.areasInteres || ''}" />
+              <input class="form-input" id="guide-areas" name="areasInteres" value="${saved?.areasInteres || ''}" ${disabledAttr} />
             </div>
             <div class="form-group">
               <label class="form-label" for="guide-habilidades">Habilidades</label>
-              <input class="form-input" id="guide-habilidades" name="habilidades" value="${saved?.habilidades || ''}" />
+              <input class="form-input" id="guide-habilidades" name="habilidades" value="${saved?.habilidades || ''}" ${disabledAttr} />
             </div>
           </div>
           <div class="form-row">
             <div class="form-group">
               <label class="form-label" for="guide-idiomas">Idiomas</label>
-              <input class="form-input" id="guide-idiomas" name="idiomas" value="${saved?.idiomas || ''}" />
+              <input class="form-input" id="guide-idiomas" name="idiomas" value="${saved?.idiomas || ''}" ${disabledAttr} />
             </div>
             <div class="form-group">
               <label class="form-label" for="guide-disponibilidad">Disponibilidad</label>
-              <input class="form-input" id="guide-disponibilidad" name="disponibilidad" value="${saved?.disponibilidad || ''}" />
+              <input class="form-input" id="guide-disponibilidad" name="disponibilidad" value="${saved?.disponibilidad || ''}" ${disabledAttr} />
             </div>
           </div>
           <div class="form-group">
             <label class="form-label" for="guide-modalidad">Modalidad deseada</label>
-            <select class="form-select" id="guide-modalidad" name="modalidad">
+            <select class="form-select" id="guide-modalidad" name="modalidad" ${disabledAttr}>
               <option value="Presencial" ${saved?.modalidad === 'Presencial' ? 'selected' : ''}>Presencial</option>
               <option value="Remota" ${saved?.modalidad === 'Remota' ? 'selected' : ''}>Remota</option>
               <option value="Híbrida" ${saved?.modalidad === 'Híbrida' ? 'selected' : ''}>Híbrida</option>
@@ -849,17 +860,27 @@ function buildEmploymentGuidePage() {
           </div>
           <div class="page-section">
             <h4>Autorización de tratamiento de datos</h4>
-            <label class="remember-row"><input type="checkbox" name="tratamientoDatos" value="si" ${saved?.tratamientoDatos ? 'checked' : ''} /> <span>Autorizo el tratamiento de mis datos personales.</span></label>
-            <label class="remember-row"><input type="checkbox" name="compartirEmpresas" value="si" ${saved?.compartirEmpresas ? 'checked' : ''} /> <span>Autorizo que mi información sea compartida con empresas interesadas en contratarme.</span></label>
-            <label class="remember-row"><input type="checkbox" name="oportunidadesEducativas" value="si" ${saved?.oportunidadesEducativas ? 'checked' : ''} /> <span>Autorizo el uso de mi perfil para mostrar oportunidades educativas.</span></label>
-            <label class="remember-row"><input type="checkbox" name="contactoProgramas" value="si" ${saved?.contactoProgramas ? 'checked' : ''} /> <span>Autorizo ser contactado sobre programas técnicos, tecnológicos, universitarios y becas.</span></label>
+            <label class="remember-row"><input type="checkbox" name="tratamientoDatos" value="si" ${saved?.tratamientoDatos ? 'checked' : ''} ${disabledAttr} /> <span>Autorizo el tratamiento de mis datos personales.</span></label>
+            <label class="remember-row"><input type="checkbox" name="compartirEmpresas" value="si" ${saved?.compartirEmpresas ? 'checked' : ''} ${disabledAttr} /> <span>Autorizo que mi información sea compartida con empresas interesadas en contratarme.</span></label>
+            <label class="remember-row"><input type="checkbox" name="oportunidadesEducativas" value="si" ${saved?.oportunidadesEducativas ? 'checked' : ''} ${disabledAttr} /> <span>Autorizo el uso de mi perfil para mostrar oportunidades educativas.</span></label>
+            <label class="remember-row"><input type="checkbox" name="contactoProgramas" value="si" ${saved?.contactoProgramas ? 'checked' : ''} ${disabledAttr} /> <span>Autorizo ser contactado sobre programas técnicos, tecnológicos, universitarios y becas.</span></label>
           </div>
-          <button type="submit" class="form-submit">Guardar mi perfil</button>
+          <button type="submit" id="employment-form-submit" class="form-submit" ${readOnly ? 'disabled' : ''}>Guardar mi perfil</button>
         </form>
+        <div id="employment-form-success-screen" class="form-success-screen hidden" aria-live="polite">
+          <div class="checkmark-anim" aria-hidden="true">
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+              <path class="checkmark-circle" d="M50 5a45 45 0 1 1 0 90 45 45 0 1 1 0-90" fill="none" stroke="#00ff88" stroke-width="6" />
+              <path class="checkmark-check" d="M28 53l15 14 29-35" fill="none" stroke="#00ff88" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+          <div class="form-success-title">¡Formulario exitoso!</div>
+          <div class="form-success-text">Tu perfil se guardó correctamente.</div>
+          <div class="form-success-countdown" id="employment-form-countdown">Cerrando en 3...</div>
+        </div>
       </article>
     </div>`;
 }
-
 function buildCompaniesPage() {
   const companies = COMPANY_SAMPLE.map(item => `
     <article class="page-card company-card-page">
@@ -881,8 +902,62 @@ window.handleEmploymentForm = function (event) {
   const data = Object.fromEntries(new FormData(form));
   localStorage.setItem('geoply_aspirante', JSON.stringify(data));
   STATE.userSession = data;
-  showToast('Tu perfil quedó guardado correctamente.');
-  closeCurrentPage();
+  STATE.guiaEmpleoEditing = false;
+  showEmploymentFormSuccess();
+};
+
+window.toggleEmploymentFormEdit = function () {
+  STATE.guiaEmpleoEditing = true;
+  const form = document.getElementById('employment-form');
+  if (!form) return;
+  form.querySelectorAll('input, select, textarea').forEach(el => el.removeAttribute('disabled'));
+  const editBtn = document.getElementById('employment-form-edit-btn');
+  if (editBtn) {
+    editBtn.textContent = 'Edición activa';
+    editBtn.disabled = true;
+  }
+  const submitBtn = document.getElementById('employment-form-submit');
+  if (submitBtn) submitBtn.disabled = false;
+};
+
+window.showEmploymentFormSuccess = function () {
+  const form = document.getElementById('employment-form');
+  const successScreen = document.getElementById('employment-form-success-screen');
+  const countdownEl = document.getElementById('employment-form-countdown');
+  if (!successScreen || !form) return;
+  form.classList.add('hidden');
+  successScreen.classList.remove('hidden');
+  successScreen.classList.add('visible');
+  if (countdownEl) countdownEl.textContent = 'Cerrando en 3...';
+  const submitBtn = document.getElementById('employment-form-submit');
+  if (submitBtn) submitBtn.disabled = true;
+  const editBtn = document.getElementById('employment-form-edit-btn');
+  if (editBtn) editBtn.disabled = true;
+
+  let remaining = 3;
+  if (window._employmentFormCountdownInterval) {
+    clearInterval(window._employmentFormCountdownInterval);
+  }
+  if (window._employmentFormCloseTimeout) {
+    clearTimeout(window._employmentFormCloseTimeout);
+  }
+
+  window._employmentFormCountdownInterval = setInterval(() => {
+    remaining -= 1;
+    if (countdownEl) countdownEl.textContent = `Cerrando en ${remaining}...`;
+    if (remaining <= 0) {
+      clearInterval(window._employmentFormCountdownInterval);
+      window._employmentFormCountdownInterval = null;
+    }
+  }, 1000);
+
+  window._employmentFormCloseTimeout = setTimeout(() => {
+    if (window._employmentFormCountdownInterval) {
+      clearInterval(window._employmentFormCountdownInterval);
+      window._employmentFormCountdownInterval = null;
+    }
+    closeCurrentPage();
+  }, 5000);
 };
 
 window.handleAccountAction = function () {
