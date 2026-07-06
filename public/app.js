@@ -164,22 +164,36 @@ function initMap() {
   deptLayer   = L.layerGroup().addTo(MAP);
   comunaLayer = L.layerGroup();
 
+  let __colombiaViewLocked = false; // se pone en true en cuanto el usuario interactúa con el mapa
+
   MAP.whenReady(() => {
     clearTimeout(loaderTimer);
     hideLoader();
     stampPerf();
     const forceColombiaView = () => {
-      if (!MAP) return;
+      if (!MAP || __colombiaViewLocked) return;
       MAP.invalidateSize({ animate: false });
       MAP.setView(MAP_CENTER, MAP_ZOOM, { animate: false });
     };
-    // Varios reintentos: en equipos más lentos, 220ms puede no ser suficiente
-    // para que el contenedor ya tenga su tamaño final, y el mapa queda
-    // centrado sobre un tamaño incorrecto (viéndose lejos de Colombia).
+
+    // El contenedor del mapa ahora tiene una altura fija por CSS (ver .app-main),
+    // pero igual reaccionamos a cambios de tamaño reales (fuentes, resize,
+    // apertura/cierre de paneles) en vez de confiar solo en temporizadores fijos.
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => forceColombiaView());
+      ro.observe(mapEl);
+    }
+
+    // Reintentos de respaldo por si ResizeObserver no está disponible o el
+    // navegador tarda más de lo esperado en asentar el layout.
     setTimeout(forceColombiaView, 220);
     setTimeout(forceColombiaView, 600);
     setTimeout(forceColombiaView, 1200);
     window.addEventListener('load', forceColombiaView, { once: true });
+
+    // En cuanto el usuario mueve o hace zoom manualmente, dejamos de forzar
+    // el centrado automático para no "pelearnos" con su interacción.
+    MAP.on('dragstart zoomstart', () => { __colombiaViewLocked = true; });
   });
 
   renderDeptPolygons();
@@ -217,7 +231,13 @@ function stampPerf() {
 }
 
 window.resetView = function () {
-  if (MAP) MAP.flyTo(MAP_CENTER, MAP_ZOOM, { duration: 0.9 });
+  if (!MAP) return;
+  // Primero recalculamos el tamaño real del contenedor (puede haber cambiado
+  // si un panel lateral estaba abierto) y solo después centramos; si se hace
+  // en el orden contrario, Leaflet puede "centrar" sobre un tamaño viejo y
+  // el mapa termina viéndose desplazado de Colombia.
+  MAP.invalidateSize({ animate: false });
+  MAP.flyTo(MAP_CENTER, MAP_ZOOM, { duration: 0.9 });
 };
 
 function setSidebarState(side, open) {
@@ -1099,24 +1119,35 @@ function selectDeptFromSearch(deptName) {
     selectDept(deptName, null); // abre el panel derecho primero
     showToast(`Mostrando ${deptName}`);
 
-    const centro = (typeof DEPARTAMENTOS_EMPLEO !== 'undefined')
-      ? DEPARTAMENTOS_EMPLEO.find(d => d.nombre === deptName) : null;
+    const findCentro = () => {
+      if (typeof DEPARTAMENTOS_EMPLEO === 'undefined') return null;
+      return DEPARTAMENTOS_EMPLEO.find(d => d.nombre === deptName)
+        || DEPARTAMENTOS_EMPLEO.find(d => normalizeKey(d.nombre) === normalizeKey(deptName))
+        || null;
+    };
 
-    // Esperamos a que termine la transición del panel lateral (que cambia el
-    // ancho del mapa) y a que invalidateSize lo reajuste, antes de volar —
-    // así no vuela sobre un mapa todavía desalineado.
-    setTimeout(() => {
+    const flyToDept = () => {
       MAP.invalidateSize({ animate: false });
+      const centro = findCentro();
       if (centro) {
         MAP.flyTo([centro.lat, centro.lng], 7, { duration: 0.8 });
       } else {
-        const fallback = DEPARTAMENTOS_LIST.find(d => normalizeKey(d) === normalizeKey(deptName));
-        if (fallback) {
-          const guessed = DEPARTAMENTOS_EMPLEO.find(d => normalizeKey(d.nombre) === normalizeKey(fallback));
-          if (guessed) MAP.flyTo([guessed.lat, guessed.lng], 7, { duration: 0.8 });
-        }
+        console.warn('[GeoPly] No se encontraron coordenadas para el departamento:', deptName);
       }
-    }, 340);
+    };
+
+    // Esperamos a que termine la transición del panel lateral (que cambia el
+    // ancho del mapa) y a que invalidateSize lo reajuste, antes de volar —
+    // así no vuela sobre un mapa todavía desalineado. Usamos el evento real
+    // de fin de transición del panel como disparador principal, con un
+    // timeout de respaldo por si el panel ya estaba abierto (sin transición).
+    const rightSidebarEl = document.querySelector('.sidebar-right');
+    let flown = false;
+    const runOnce = () => { if (flown) return; flown = true; flyToDept(); };
+    if (rightSidebarEl) {
+      rightSidebarEl.addEventListener('transitionend', runOnce, { once: true });
+    }
+    setTimeout(runOnce, 380);
   }
 }
 
