@@ -20,10 +20,6 @@
 <div class="header-container">
 
 <button class="logo" type="button" onclick="goHome()" aria-label="Volver a la pantalla principal">
-  
-<button class="help-btn" type="button" onclick="abrirHowTo()" aria-label="Cómo funciona el mapa">
-<span aria-hidden="true">?</span> Cómo usar el mapa
-</button>
 
 <div class="logo-circle"></div>
 
@@ -39,6 +35,10 @@ El futuro laboral empieza aquí
 
 </div>
 
+</button>
+
+<button class="help-btn" type="button" onclick="abrirHowTo()" aria-label="Cómo funciona el mapa">
+  <span aria-hidden="true">?</span> Cómo usar el mapa
 </button>
 
 <nav class="main-nav">
@@ -128,7 +128,7 @@ Soy empresa
         <div class="map-hero-panel" id="hero-panel">
           <div class="hero-panel-header">
             <div class="hero-panel-copy">
-              <div class="eyebrow">GeoPly • Empleo + Formación</div>
+              <div class="eyebrow">GeoPly • empleo + formación</div>
               <h1>Tu guía para encontrar oportunidades y prepararte para el futuro.</h1>
             </div>
             <div class="hero-panel-controls">
@@ -341,6 +341,10 @@ Soy empresa
         <button class="modal-close" onclick="cerrarModales()" aria-label="Cerrar">✕</button>
       </div>
       <div class="modal-body">
+        <div class="company-switcher">
+          <button class="company-switch active" id="company-switch-login" type="button" onclick="showCompanyAuthView('login')">Iniciar sesión</button>
+          <button class="company-switch" id="company-switch-register" type="button" onclick="showCompanyAuthView('register')">Registrar empresa</button>
+        </div>
 
         <div id="company-auth-login" class="company-view">
           <form id="form-company-login" onsubmit="iniciarSesionEmpresa(event)">
@@ -389,7 +393,7 @@ Soy empresa
         <div id="company-dashboard" class="company-view hidden">
           <div class="company-dashboard-card">
             <div class="company-dashboard-title" id="company-dashboard-title">Panel de empresa</div>
-            <div class="company-dashboard-copy" id="company-dashboard-copy">Gestiona tu perfil</div>
+            <div class="company-dashboard-copy" id="company-dashboard-copy">Gestiona tu perfil y publica vacantes.</div>
           </div>
           <div class="company-dashboard-actions">
             <button class="hero-secondary" type="button" onclick="editarEmpresaActual()">Editar información</button>
@@ -469,29 +473,33 @@ Soy empresa
 
           <div class="howto-step active" data-step="1">
             <div class="howto-step-icon">🗺️</div>
-            <div class="howto-step-title">1. Explora el mapa</div>
+            <div class="howto-step-title">1. Lee los colores del mapa</div>
             <div class="howto-step-text">
-              Cada departamento en el mapa se colorea según su GeoPly Score. Haz clic
-              sobre un departamento (o una zona de Medellín) para ver su detalle.
+              Cada departamento se pinta según su GeoPly Score: <strong style="color:#00ff88">verde</strong> es
+              alta oportunidad (≥70), <strong style="color:#ffd700">amarillo</strong> es media (45-69) y
+              <strong style="color:#ff5252">rojo</strong> es baja (&lt;45). Usa los botones + / − o "Centrar"
+              (arriba a la derecha) para acercar o volver a la vista completa de Colombia.
             </div>
           </div>
 
           <div class="howto-step" data-step="2">
             <div class="howto-step-icon">🎯</div>
-            <div class="howto-step-title">2. Revisa el detalle</div>
+            <div class="howto-step-title">2. Haz clic en un departamento</div>
             <div class="howto-step-text">
-              En el panel derecho verás las tasas clave del DANE (desempleo, ocupación,
-              participación, subocupación) y la población de esa zona.
+              Al hacer clic (o buscar su nombre arriba con la lupa) se abre un panel con las
+              tasas clave del DANE de esa zona: desempleo, ocupación, participación y
+              subocupación, más la población total y ocupada.
             </div>
           </div>
 
           <div class="howto-step" data-step="3">
             <div class="howto-step-icon">✅</div>
-            <div class="howto-step-title">3. Analiza a fondo</div>
+            <div class="howto-step-title">3. Profundiza en el Panel de Empleo</div>
             <div class="howto-step-text">
-              Entra al Panel de Empleo para ver las 15 variables del modelo GeoPly,
-              filtrar por área de interés y leer el análisis en lenguaje sencillo
-              de cada gráfico.
+              Desde ahí entra a "Panel de Empleo" para ver las 15 variables del modelo GeoPly
+              y una explicación en lenguaje sencillo de cada gráfico. Al final del panel
+              encontrarás un enlace directo al Servicio Público de Empleo por si quieres
+              buscar vacantes de un sector específico (tecnología, salud, agro, etc.).
             </div>
           </div>
 
