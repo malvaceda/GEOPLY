@@ -4,13 +4,13 @@ window.__geoInitStatus = 'script-loaded';
 console.log('[GeoPly] app.js loaded');
 
 const MAP_CENTER = [4.5709, -74.2973];
-const MAP_ZOOM   = 4;
-const MEDELLIN_ZOOM_THRESHOLD = 5;
+const MAP_ZOOM   = 5;
+const MEDELLIN_ZOOM_THRESHOLD = 9.2; // a partir de este zoom se muestran las comunas de Medellín
 
 const STATE = {
-  selectedDept:     null,
-  selectedComuna:   null,
-  selectedArea:     'all',
+  selectedDept:     null,   // nombre del departamento activo
+  selectedComuna:   null,   // nombre de la comuna de Medellín activa (si aplica)
+  selectedArea:     'all',  // área de interés activa (para el panel de empleo)
   sidebarLeftOpen:  false,
   sidebarRightOpen: false,
   heroCollapsed: false,
@@ -115,6 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.__geoInitStatus = 'calling-init-map';
     initMap();
     loadAllDatasets();
+    // buildDeptQuicklist(); // Se quitó la lista de botones de departamentos (queda solo el buscador de arriba)
     initInteractivePanels();
     initSearch();
     initCompanyPanel();
@@ -129,6 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function refreshLastSyncLabel() {
+  // Reservado para futuros indicadores de frescura de datos en el panel de empleo.
 }
 
 function showError() {
@@ -166,15 +168,25 @@ function initMap() {
     clearTimeout(loaderTimer);
     hideLoader();
     stampPerf();
-    setTimeout(() => {
-      if (MAP) {
-        MAP.invalidateSize({ animate: false });
-        MAP.setView(MAP_CENTER, MAP_ZOOM, { animate: false });
-      }
-    }, 220);
+    const forceColombiaView = () => {
+      if (!MAP) return;
+      MAP.invalidateSize({ animate: false });
+      MAP.setView(MAP_CENTER, MAP_ZOOM, { animate: false });
+    };
+    // Varios reintentos: en equipos más lentos, 220ms puede no ser suficiente
+    // para que el contenedor ya tenga su tamaño final, y el mapa queda
+    // centrado sobre un tamaño incorrecto (viéndose lejos de Colombia).
+    setTimeout(forceColombiaView, 220);
+    setTimeout(forceColombiaView, 600);
+    setTimeout(forceColombiaView, 1200);
+    window.addEventListener('load', forceColombiaView, { once: true });
   });
 
   renderDeptPolygons();
+
+  window.addEventListener('resize', () => {
+    if (MAP) MAP.invalidateSize({ animate: false });
+  });
 
   MAP.on('zoomend', () => {
     const z = MAP.getZoom();
@@ -205,7 +217,7 @@ function stampPerf() {
 }
 
 window.resetView = function () {
-  if (MAP) MAP.flyTo([4.5709, -74.2973], 6, { duration: 0.9 });
+  if (MAP) MAP.flyTo(MAP_CENTER, MAP_ZOOM, { duration: 0.9 });
 };
 
 function setSidebarState(side, open) {
@@ -221,6 +233,13 @@ function setSidebarState(side, open) {
     : (open ? '›' : '‹');
 
   STATE[side === 'left' ? 'sidebarLeftOpen' : 'sidebarRightOpen'] = open;
+
+  // El panel lateral cambia el ancho disponible del mapa (transición CSS de ~300ms).
+  // Leaflet no se entera solo de ese cambio de tamaño, así que se lo avisamos
+  // explícitamente cuando termina la transición para que no quede desalineado.
+  if (MAP) {
+    setTimeout(() => { MAP.invalidateSize({ animate: false }); }, 320);
+  }
 }
 
 window.toggleSidebar = function (side) {
@@ -1077,19 +1096,27 @@ function renderCompanyVacancies() {
 
 function selectDeptFromSearch(deptName) {
   if (deptName && MAP) {
-    fitDeptBounds(deptName);
-    selectDept(deptName, null);
+    selectDept(deptName, null); // abre el panel derecho primero
     showToast(`Mostrando ${deptName}`);
-  }
-}
 
-function fitDeptBounds(deptName) {
-  if (!MAP || typeof DEPT_BOUNDARIES === 'undefined') return;
-  const feature = DEPT_BOUNDARIES.features.find(f => f.properties.nombre === deptName);
-  if (feature) {
-    const geojsonLayer = L.geoJSON(feature);
-    const bounds = geojsonLayer.getBounds();
-    MAP.fitBounds(bounds, { padding: [0, 0, 0, 0], duration: 800 });
+    const centro = (typeof DEPARTAMENTOS_EMPLEO !== 'undefined')
+      ? DEPARTAMENTOS_EMPLEO.find(d => d.nombre === deptName) : null;
+
+    // Esperamos a que termine la transición del panel lateral (que cambia el
+    // ancho del mapa) y a que invalidateSize lo reajuste, antes de volar —
+    // así no vuela sobre un mapa todavía desalineado.
+    setTimeout(() => {
+      MAP.invalidateSize({ animate: false });
+      if (centro) {
+        MAP.flyTo([centro.lat, centro.lng], 7, { duration: 0.8 });
+      } else {
+        const fallback = DEPARTAMENTOS_LIST.find(d => normalizeKey(d) === normalizeKey(deptName));
+        if (fallback) {
+          const guessed = DEPARTAMENTOS_EMPLEO.find(d => normalizeKey(d.nombre) === normalizeKey(fallback));
+          if (guessed) MAP.flyTo([guessed.lat, guessed.lng], 7, { duration: 0.8 });
+        }
+      }
+    }, 340);
   }
 }
 
@@ -1248,9 +1275,6 @@ function metricBoxesHtml(list) {
 }
 
 function openDeptDetail(deptName) {
-  const sidebarRight = document.querySelector('.sidebar-right');
-  if (sidebarRight) sidebarRight.scrollTop = 0;
-
   const idx = computeAllIndicators();
   const r = idx.byDept[deptName];
   if (!r) return;
@@ -1283,9 +1307,6 @@ function openDeptDetail(deptName) {
 }
 
 function openComunaDetail(comunaName) {
-  const sidebarRight = document.querySelector('.sidebar-right');
-  if (sidebarRight) sidebarRight.scrollTop = 0;
-
   // No hay estadísticas DANE oficiales a nivel de comuna en las fuentes cargadas;
   // se muestra honestamente el contexto departamental (Antioquia) para no inventar cifras locales.
   const idx = computeAllIndicators();
