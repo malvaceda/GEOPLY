@@ -870,8 +870,8 @@ function buildEmploymentGuidePage() {
         <div id="employment-form-success-screen" class="form-success-screen hidden" aria-live="polite">
           <div class="checkmark-anim" aria-hidden="true">
             <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-              <path class="checkmark-circle" d="M50 5a45 45 0 1 1 0 90 45 45 0 1 1 0-90" fill="none" stroke="#00ff88" stroke-width="6" />
-              <path class="checkmark-check" d="M28 53l15 14 29-35" fill="none" stroke="#00ff88" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+              <path class="checkmark-circle" d="M50 5a45 45 0 1 1 0 90 45 45 0 1 1 0-90" fill="none" stroke="#00ff88" stroke-width="6" pathLength="100" />
+              <path class="checkmark-check" d="M28 53l15 14 29-35" fill="none" stroke="#00ff88" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" pathLength="100" />
             </svg>
           </div>
           <div class="form-success-title">¡Formulario exitoso!</div>
