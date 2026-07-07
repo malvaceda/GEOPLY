@@ -1,3 +1,5 @@
+
+
 :root{
 
 --primary:#4F46E5;
@@ -603,22 +605,6 @@ box-shadow:0 0 0 rgba(79,70,229,.2);
   box-shadow: 0 18px 45px rgba(15,23,42,0.08);
   pointer-events: auto;
   transition: all 0.25s ease;
-  transform-origin: top left;
-}
-
-.map-hero-panel.hero-enter {
-  animation: hero-enter 0.35s ease-out both;
-}
-
-@keyframes hero-enter {
-  from {
-    opacity: 0;
-    transform: translate(-30px, -30px) scale(0.90);
-  }
-  to {
-    opacity: 1;
-    transform: translate(0, 0) scale(1);
-  }
 }
 
 .map-hero-panel.collapsed {
@@ -1415,161 +1401,25 @@ box-shadow:0 0 0 rgba(79,70,229,.2);
   pointer-events: none;
 }
 
-.form-success-screen {
-  position: relative;
-  min-height: 280px;
-  display: grid;
-  place-items: center;
-  padding: 28px 20px;
-  margin-top: 18px;
+.form-success {
+  background: rgba(0,255,136,0.06);
+  border: 1px solid rgba(0,255,136,0.25);
   border-radius: var(--radius-sm);
-  background: rgba(15,23,42,0.95);
-  color: white;
+  padding: 14px 16px;
   text-align: center;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
-  overflow: hidden;
-}
-
-.form-success-screen.hidden {
   display: none;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.form-success-screen.visible {
-  display: grid;
-}
-
-.form-success-title {
-  font-family: var(--ff-mono);
-  font-size: 18px;
-  color: #00ff88;
-  letter-spacing: 0.35em;
-  text-transform: uppercase;
-}
-
-.form-success-text {
-  font-size: 14px;
-  color: rgba(255,255,255,0.82);
-  max-width: 420px;
-  margin: 0 auto;
-  line-height: 1.6;
-}
-
-.form-success-countdown {
-  margin-top: 10px;
-  font-size: 13px;
-  color: rgba(255,255,255,0.72);
-}
-
-.checkmark-anim {
-  width: 88px;
-  height: 88px;
-  margin-bottom: 16px;
-}
-
-.checkmark-anim svg {
-  width: 88px;
-  height: 88px;
-}
-
-.checkmark-circle {
-  stroke-dasharray: 282.6;
-  stroke-dashoffset: 282.6;
-  animation: circle-draw 1.6s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.checkmark-check {
-  stroke-dasharray: 72;
-  stroke-dashoffset: 72;
-  animation: check-draw 1.4s cubic-bezier(0.4, 0, 0.2, 1) 1.0s forwards;
-}
-
-@keyframes circle-draw {
-  to { stroke-dashoffset: 0; }
-}
-
-@keyframes check-draw {
-  to { stroke-dashoffset: 0; }
-}
-
-.form-success-title {
-  font-family: var(--ff-mono);
-  font-size: 14px;
-  color: var(--mde-neon);
-  letter-spacing: 0.5px;
-}
-
-.form-success-text {
-  font-size: 12px;
-  color: var(--tx-secondary);
-  line-height: 1.5;
-}
-
-.page-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 18px;
-}
-
-.form-submit.secondary {
-  width: auto;
-  padding: 10px 16px;
-  font-size: 12px;
-  background: rgba(0,255,136,0.08);
-  border-color: rgba(0,255,136,0.3);
-}
-
-.form-submit.secondary:hover {
-  background: rgba(0,255,136,0.16);
-}
-
-.read-only-form .form-input,
-.read-only-form .form-select,
-.read-only-form .form-textarea {
-  background: rgba(255,255,255,0.08);
-  color: var(--tx-primary);
-}
-
-.read-only-form .form-input:disabled,
-.read-only-form .form-select:disabled,
-.read-only-form .form-textarea:disabled,
-.read-only-form input[type="checkbox"]:disabled {
-  opacity: 0.85;
-  cursor: not-allowed;
-}
-
-.checkmark-anim svg {
-  width: 72px;
-  height: 72px;
-}
-
-.checkmark-circle {
-  stroke-dasharray: 283;
-  stroke-dashoffset: 283;
-  animation: circle-draw 0.9s ease forwards;
-}
-
-.checkmark-check {
-  stroke-dasharray: 100;
-  stroke-dashoffset: 100;
-  animation: check-draw 0.6s ease 0.9s forwards;
-}
-
-@keyframes circle-draw {
-  to { stroke-dashoffset: 0; }
-}
-
-@keyframes check-draw {
-  to { stroke-dashoffset: 0; }
-}
+.form-success.visible { display: flex; }
 
 .form-success-icon { font-size: 24px; }
 
 .form-success-title {
   font-family: var(--ff-mono);
   font-size: 11px;
-  color: var(--mde-neon);
+  color: var(--success);
   letter-spacing: 0.5px;
 }
 
@@ -1620,23 +1470,23 @@ box-shadow:0 0 0 rgba(79,70,229,.2);
 }
 
 .checkmark-circle {
-  stroke: var(--mde-neon);
+  stroke: var(--success);
   stroke-width: 2.5;
-  stroke-dasharray: 160;
-  stroke-dashoffset: 160;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
   stroke-linecap: round;
   animation: checkmark-draw-circle 0.55s cubic-bezier(0.6, 0, 0.4, 1) forwards;
 }
 
 .checkmark-check {
-  stroke: var(--mde-neon);
+  stroke: var(--success);
   stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-dasharray: 40;
-  stroke-dashoffset: 40;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
   animation: checkmark-draw-check 0.35s cubic-bezier(0.6, 0, 0.4, 1) 0.5s forwards;
-  filter: drop-shadow(0 0 6px var(--mde-neon));
+  filter: drop-shadow(0 0 6px var(--success));
 }
 
 @keyframes checkmark-draw-circle {
@@ -1800,24 +1650,6 @@ box-shadow:0 0 0 rgba(79,70,229,.2);
   font-size: 34px;
   line-height: 1;
   filter: drop-shadow(0 0 10px rgba(0,255,136,0.25));
-}
-
-.howto-media-image {
-  width: 100%;
-  max-width: 90px;
-  height: auto;
-  border-radius: 14px;
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.14);
-  object-fit: cover;
-}
-
-.howto-media-video {
-  width: 100%;
-  max-width: 180px;
-  height: auto;
-  border-radius: 14px;
-  box-shadow: 0 18px 35px rgba(0, 0, 0, 0.18);
-  object-fit: cover;
 }
 
 .howto-step-title {
@@ -2246,24 +2078,6 @@ background:var(--primary-dark);
 .full-form {
   display: grid;
   gap: 14px;
-  position: relative;
-}
-
-.form-success {
-  position: absolute;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(10, 20, 18, 0.95);
-  border-radius: var(--radius-sm);
-  padding: 18px 20px;
-  z-index: 12;
-  pointer-events: auto;
-}
-
-.form-success.visible {
-  display: flex;
 }
 
 .floating-toast {
