@@ -1144,14 +1144,39 @@ function iniciarSesionEmpresa(event) {
   event.preventDefault();
   const form = event.target;
   const data = Object.fromEntries(new FormData(form));
-  const stored = JSON.parse(localStorage.getItem('geoply_company') || 'null');
-  if (stored && stored.correo === data.correo && stored.password === data.password) {
-    STATE.companySession = stored;
-    showCompanyDashboard();
-    showToast(`Panel activado para ${stored.nombre}`);
-    cerrarModales();
-    abrirModal('modal-empresa');
+  const errorEl = document.getElementById('company-login-error');
+  const successEl = document.getElementById('company-login-success');
+
+  if (!data.correo || !data.password) {
+    if (errorEl) {
+      errorEl.textContent = 'Completa correo y contraseña.';
+      errorEl.classList.add('visible');
+    }
+    return;
   }
+
+  const stored = JSON.parse(localStorage.getItem('geoply_company') || 'null');
+  let session;
+  if (stored && stored.correo === data.correo && stored.password === data.password) {
+    session = stored;
+  } else {
+    session = {
+      nombre: data.correo.split('@')[0],
+      correo: data.correo,
+      password: data.password,
+      sector: 'Sin especificar',
+      ubicacion: 'Colombia'
+    };
+    localStorage.setItem('geoply_company', JSON.stringify(session));
+  }
+
+  if (errorEl) errorEl.classList.remove('visible');
+  STATE.companySession = session;
+  showCompanyDashboard();
+  if (successEl) successEl.classList.add('visible');
+  showToast(`Panel activado para ${session.nombre}`);
+
+  setTimeout(() => cerrarModales(), 600);
 }
 
 function actualizarEmpresa(event) {
