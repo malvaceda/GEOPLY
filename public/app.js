@@ -1057,6 +1057,8 @@ function initAuthForms() {
       localStorage.setItem('geoply_aspirante', JSON.stringify(profileData));
       STATE.userSession = profileData;
       document.getElementById('nav-login-btn').textContent = 'Mi cuenta';
+      const heroBtn = document.getElementById('hero-account-btn');
+      if (heroBtn) heroBtn.textContent = 'Mi Cuenta';
       showToast('Bienvenido a GeoPly');
       setTimeout(() => cerrarModales(), 500);
     });
