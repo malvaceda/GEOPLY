@@ -1414,11 +1414,21 @@ box-shadow:0 0 0 rgba(79,70,229,.2);
 
 .form-success.visible { display: flex; }
 
+.form-success-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  padding: 20px;
+}
+
 .form-success-icon { font-size: 24px; }
 
 .form-success-title {
   font-family: var(--ff-mono);
-  font-size: 11px;
+  font-size: 14px;
   color: var(--success);
   letter-spacing: 0.5px;
 }
@@ -2050,12 +2060,29 @@ background:var(--primary-dark);
   grid-template-columns: 1fr;
 }
 
-.page-card {
+..page-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 22px;
   padding: 20px;
   box-shadow: 0 12px 30px rgba(15,23,42,0.06);
+}
+
+.page-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+#employment-form-edit-btn {
+  width: auto;
+  min-width: 120px;
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 16px;
 }
 
 .page-card h3 {
