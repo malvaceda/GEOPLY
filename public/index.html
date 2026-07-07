@@ -345,6 +345,17 @@ Soy empresa
         </div>
 
         <div id="company-auth-login" class="company-view">
+          <div class="form-success" id="company-login-success">
+            <div class="form-success-icon">
+              <svg class="checkmark-anim" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <path class="checkmark-circle" d="M50 5a45 45 0 1 1 0 90 45 45 0 1 1 0-90" fill="none" stroke="#00ff88" stroke-width="6" pathLength="100" />
+                <path class="checkmark-check" d="M28 53l15 14 29-35" fill="none" stroke="#00ff88" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" pathLength="100" />
+              </svg>
+            </div>
+            <div class="form-success-title">¡Sesión iniciada!</div>
+            <div class="form-success-text">Bienvenido de nuevo. Cargando tu panel de empresa…</div>
+          </div>
+          <div id="company-login-error" class="form-error-msg"></div>
           <form id="form-company-login" onsubmit="iniciarSesionEmpresa(event)">
             <div class="form-group">
               <label class="form-label" for="company-login-email">Correo empresarial</label>
