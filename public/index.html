@@ -211,11 +211,11 @@ Soy empresa
         <div class="form-success" id="success-aspirante">
           <div class="form-success-icon">
             <svg class="checkmark-anim" viewBox="0 0 52 52" xmlns="http://www.w3.org/2000/svg">
-              <circle class="checkmark-circle" cx="26" cy="26" r="24" fill="none"/>
-              <path class="checkmark-check" fill="none" d="M13 27 l9 9 l17 -18"/>
+              <circle class="checkmark-circle" cx="26" cy="26" r="24" fill="none" pathLength="100"/>
+              <path class="checkmark-check" fill="none" d="M13 27 l9 9 l17 -18" pathLength="100"/>
             </svg>
           </div>
-        <div class="form-success-title">¡Formulario exitoso!</div>
+        <div class="form-success-title">¡Guardado exitosamente!</div>
         <div class="form-success-text">Tu perfil ha sido recibido. El sistema GeoPly calculará tu compatibilidad con las vacantes disponibles y recibirás notificaciones a tu correo.</div>
       </div>
       <div id="profile-aspirante" class="profile-aspirante hidden">
@@ -471,10 +471,12 @@ Soy empresa
 
           <div class="howto-step active" data-step="1">
             <div class="howto-step-icon"><img src="colombia.png" alt="Mapa de Colombia" class="howto-media-image"></div>
-            <div class="howto-step-title">1. Lee los colores del mapa</div>
+            <div class="howto-step-title">1. Identifica cada departamento</div>
             <div class="howto-step-text">
-              Cada departamento se pinta según su GeoPly Score: <strong style="color:#00ff88">verde</strong> es
-              alta oportunidad (≥70), <strong style="color:#ffd700">amarillo</strong> es media (45-69) y
+              Cada departamento tiene un color distinto para que puedas identificarlo fácilmente en el mapa.
+              Pasa el cursor o haz clic sobre un departamento para ver su GeoPly Score:
+              <strong style="color:#00ff88">verde</strong> es alta oportunidad (≥70),
+              <strong style="color:#ffd700">amarillo</strong> es media (45-69) y
               <strong style="color:#ff5252">rojo</strong> es baja (&lt;45). Usa los botones + / − o "Centrar"
               (arriba a la derecha) para acercar o volver a la vista completa de Colombia.
             </div>
