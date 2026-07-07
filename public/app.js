@@ -1079,6 +1079,8 @@ function initCompanyPanel() {
     STATE.userSession = JSON.parse(storedUser);
     const loginBtn = document.getElementById('nav-login-btn');
     if (loginBtn) loginBtn.textContent = 'Mi cuenta';
+    const heroBtn = document.getElementById('hero-account-btn');
+    if (heroBtn) heroBtn.textContent = 'Mi Cuenta';
   }
 }
 
