@@ -381,6 +381,16 @@ function closeCurrentPage() {
   STATE.activePage = null;
 }
 
+// Cerrar la página al hacer clic fuera del panel (page-shell)
+document.addEventListener('DOMContentLoaded', () => {
+  const overlay = document.getElementById('page-overlay');
+  if (overlay) {
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) closeCurrentPage();
+    });
+  }
+});
+
 function openIndependentPage(page) {
   const overlay = document.getElementById('page-overlay');
   const title = document.getElementById('page-title');
