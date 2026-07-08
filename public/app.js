@@ -91,12 +91,12 @@ const EDUCATION_CONTENT = {
 };
 
 const COMPANY_SAMPLE = [
-  { nombre: 'Bancolombia', sector: 'Finanzas y tecnología', ubicacion: 'Bogotá', vacantes: 14, enlace: 'https://www.bancolombia.com/personas/empleos' },
-  { nombre: 'Grupo Éxito', sector: 'Retail y operaciones', ubicacion: 'Medellín', vacantes: 9, enlace: 'https://www.grupoexito.com.co/empleos' },
-  { nombre: 'Alpina', sector: 'Alimentos y manufactura', ubicacion: 'Bogotá', vacantes: 6, enlace: 'https://www.alpina.com/co/es/empleos/' },
-  { nombre: 'SURA', sector: 'Seguros y servicios', ubicacion: 'Medellín', vacantes: 7, enlace: 'https://www.sura.com/es/empleos' },
-  { nombre: 'Rappi', sector: 'Tecnología y logística', ubicacion: 'Bogotá', vacantes: 11, enlace: 'https://careers.rappi.com/' },
-  { nombre: 'Globant', sector: 'Tecnología y software', ubicacion: 'Bogotá', vacantes: 8, enlace: 'https://careers.globant.com/' }
+  { nombre: 'Bancolombia', sector: 'Finanzas y tecnología', ubicacion: 'Bogotá', vacantes: 14, enlace: 'https://empleo.grupobancolombia.com/Bancolombia/viewalljobs/' },
+  { nombre: 'Grupo Éxito', sector: 'Retail y operaciones', ubicacion: 'Medellín', vacantes: 9, enlace: 'https://www.bing.com/jobs?q=Grupo%20%C3%89xito%20Vacantes%20de%20trabajo&scp=0&rb=0&rc=20&L2=true&c=1&form=JOBL2S' },
+  { nombre: 'Alpina', sector: 'Alimentos y manufactura', ubicacion: 'Bogotá', vacantes: 6, enlace: 'https://alpina.com/cultura-alpinista/vacantes-colombia' },
+  { nombre: 'SURA', sector: 'Seguros y servicios', ubicacion: 'Medellín', vacantes: 7, enlace: 'https://trabajaconnosotros.sura.com/viewalljobs/' },
+  { nombre: 'Rappi', sector: 'Tecnología y logística', ubicacion: 'Bogotá', vacantes: 11, enlace: 'https://co.computrabajo.com/trabajo-de-rappi' },
+  { nombre: 'Globant', sector: 'Tecnología y software', ubicacion: 'Bogotá', vacantes: 8, enlace: 'https://www.globant.com/es/careers/work-at-globant' }
 ];
 
 const DEPARTAMENTOS_LIST = [
@@ -130,7 +130,6 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function refreshLastSyncLabel() {
-  // Reservado para futuros indicadores de frescura de datos en el panel de empleo.
 }
 
 function showError() {
@@ -164,7 +163,7 @@ function initMap() {
   deptLayer   = L.layerGroup().addTo(MAP);
   comunaLayer = L.layerGroup();
 
-  let __colombiaViewLocked = false; // se pone en true en cuanto el usuario interactúa con el mapa
+  let __colombiaViewLocked = false;
 
   MAP.whenReady(() => {
     clearTimeout(loaderTimer);
@@ -176,23 +175,16 @@ function initMap() {
       MAP.setView(MAP_CENTER, MAP_ZOOM, { animate: false });
     };
 
-    // El contenedor del mapa ahora tiene una altura fija por CSS (ver .app-main),
-    // pero igual reaccionamos a cambios de tamaño reales (fuentes, resize,
-    // apertura/cierre de paneles) en vez de confiar solo en temporizadores fijos.
     if (typeof ResizeObserver !== 'undefined') {
       const ro = new ResizeObserver(() => forceColombiaView());
       ro.observe(mapEl);
     }
 
-    // Reintentos de respaldo por si ResizeObserver no está disponible o el
-    // navegador tarda más de lo esperado en asentar el layout.
     setTimeout(forceColombiaView, 220);
     setTimeout(forceColombiaView, 600);
     setTimeout(forceColombiaView, 1200);
     window.addEventListener('load', forceColombiaView, { once: true });
 
-    // En cuanto el usuario mueve o hace zoom manualmente, dejamos de forzar
-    // el centrado automático para no "pelearnos" con su interacción.
     MAP.on('dragstart zoomstart', () => { __colombiaViewLocked = true; });
   });
 
