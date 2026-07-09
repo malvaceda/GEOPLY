@@ -245,10 +245,7 @@ function setSidebarState(side, open) {
     : (open ? '›' : '‹');
 
   STATE[side === 'left' ? 'sidebarLeftOpen' : 'sidebarRightOpen'] = open;
-
-  // El panel lateral cambia el ancho disponible del mapa (transición CSS de ~300ms).
-  // Leaflet no se entera solo de ese cambio de tamaño, así que se lo avisamos
-  // explícitamente cuando termina la transición para que no quede desalineado.
+ 
   if (MAP) {
     setTimeout(() => { MAP.invalidateSize({ animate: false }); }, 320);
   }
@@ -683,50 +680,325 @@ function buildFutureJobsPage() {
 }
 
 function buildLearningGuidePage() {
-  const microcursos = [
-    ['Coursera', 'Plataforma global con cursos de universidades y empresas, algunos gratuitos y otros con certificación.'],
-    ['edX', 'Ofrece formación académica y profesional, con cursos gratuitos y opciones certificadas.'],
-    ['Microsoft Learn', 'Ruta práctica para aprender herramientas y tecnologías Microsoft de forma gratuita.'],
-    ['Google Skillshop', 'Capacitación oficial en herramientas y productos Google, ideal para productividad y marketing.'],
-    ['Cisco Networking Academy', 'Excelente para redes, ciberseguridad y tecnologías de infraestructura.'],
-    ['IBM SkillsBuild', 'Plataforma con cursos gratuitos, retos y recursos para formación digital.'],
-    ['Platzi', 'Aprendizaje práctico con rutas orientadas al mercado laboral.'],
-    ['SENA Sofía Plus', 'Recursos públicos y gratuitos con enfoque técnico y empresarial.']
+  const learningPath = [
+    { level: 'Nivel 1: Fundamentos', desc: 'Introducción a la profesión, conceptos base y terminología clave.', duration: '2–4 semanas' },
+    { level: 'Nivel 2: Conceptos intermedios', desc: 'Herramientas básicas, primeros ejercicios prácticos y comprensión del flujo de trabajo.', duration: '1–2 meses' },
+    { level: 'Nivel 3: Herramientas profesionales', desc: 'Software especializado, metodologías ágiles y estándares de la industria.', duration: '2–3 meses' },
+    { level: 'Nivel 4: Proyecto práctico', desc: 'Aplicación de conocimientos en un proyecto real o simulado con entregables concretos.', duration: '1–2 meses' },
+    { level: 'Nivel 5: Preparación para el empleo', desc: 'Portafolio, simulacros de entrevistas, certificaciones y búsqueda activa.', duration: '1 mes' }
   ];
-  const proyectos = [
-    'Diseñar una landing page con HTML, CSS y un pequeño formulario.',
-    'Analizar datos públicos con Excel o Google Sheets y resumir hallazgos.',
-    'Crear un dashboard simple con métricas y visualizaciones.',
-    'Diseñar una propuesta de negocio o plan de emprendimiento.',
-    'Resolver retos con IA y documentar los resultados.'
+
+  const studyTopics = [
+    'Pensamiento computacional y lógica',
+    'Fundamentos de matemáticas aplicadas',
+    'Comunicación técnica y documentación',
+    'Herramientas ofimáticas avanzadas',
+    'Introducción a bases de datos',
+    'Fundamentos de análisis de datos',
+    'Principios de diseño y experiencia de usuario',
+    'Gestión de proyectos y metodologías ágiles',
+    'Ética digital y seguridad de la información',
+    'Trabajo colaborativo y control de versiones'
   ];
-  const rutinas = [
-    'Pomodoro: 25 minutos de enfoque y 5 de descanso.',
-    'Active Recall: responde de memoria antes de revisar la respuesta.',
-    'Repetición espaciada: repasa lo aprendido en intervalos crecientes.',
-    'Planificación semanal: define metas, tareas y prioridades.',
-    'Objetivos diarios: elige 2 o 3 logros concretos por día.'
+
+  const recursos = {
+    gratuitos: [
+      ['Microsoft Learn', 'https://learn.microsoft.com/', 'Introducción'],
+      ['Google Skillshop', 'https://skillshop.withgoogle.com/', 'Introducción'],
+      ['SENA Sofía Plus', 'https://www.senasofiaplus.edu.co/', 'Introducción–Intermedio'],
+      ['IBM SkillsBuild', 'https://skillsbuild.org/', 'Introducción–Intermedio'],
+      ['Cisco Networking Academy', 'https://www.netacad.com/', 'Intermedio'],
+      ['FreeCodeCamp', 'https://www.freecodecamp.org/', 'Introducción–Intermedio']
+    ],
+    certificados: [
+      ['Coursera', 'https://www.coursera.org/', 'Intermedio–Avanzado'],
+      ['edX', 'https://www.edx.org/', 'Intermedio–Avanzado'],
+      ['Platzi', 'https://platzi.com/', 'Introducción–Avanzado'],
+      ['LinkedIn Learning', 'https://www.linkedin.com/learning/', 'Introducción–Avanzado']
+    ],
+    libros: [
+      ['"El diseño de las cosas cotidianas" – Don Norman', 'Diseño y UX'],
+      ['"Storytelling con datos" – Cole Nussbaumer Knaflic', 'Análisis de datos'],
+      ['"El método Lean Startup" – Eric Ries', 'Emprendimiento'],
+      ['"Aprende SQL" – varios autores', 'Bases de datos']
+    ],
+    youtube: [
+      ['FreeCodeCamp Español', 'https://www.youtube.com/@freecodecampespanol'],
+      ['Programación ATS', 'https://www.youtube.com/@ProgramacionATS'],
+      ['MoureDev', 'https://www.youtube.com/@mouredev'],
+      ['Oscar Barahona', 'https://www.youtube.com/@OscarBarahona']
+    ],
+    blogs: [
+      ['Medium – Technology', 'https://medium.com/tag/technology'],
+      ['Dev.to', 'https://dev.to/'],
+      ['Harvard Business Review', 'https://hbr.org/']
+    ],
+    documentacion: [
+      ['MDN Web Docs', 'https://developer.mozilla.org/es/'],
+      ['W3Schools', 'https://www.w3schools.com/'],
+      ['Microsoft Docs', 'https://docs.microsoft.com/']
+    ]
+  };
+
+  const proyectosPractica = [
+    { nombre: 'Página web personal', desc: 'Diseña y publica un sitio con tu perfil, proyectos y datos de contacto.', habilidades: 'HTML, CSS, GitHub Pages' },
+    { nombre: 'Dashboard de indicadores', desc: 'Toma datos públicos y construye un panel visual con métricas clave.', habilidades: 'Excel/Sheets, Power BI o Google Data Studio' },
+    { nombre: 'Aplicación de tareas', desc: 'Crea una app simple para gestionar tareas del día a día.', habilidades: 'JavaScript, React básico o Flutter' },
+    { nombre: 'Análisis de datos reales', desc: 'Descarga datasets del DANE o Kaggle y genera un informe con conclusiones.', habilidades: 'Python, Pandas, Jupyter Notebook' },
+    { nombre: 'Plan de negocio digital', desc: 'Elabora una propuesta de emprendimiento con análisis de mercado y proyecciones.', habilidades: 'Investigación, Excel, presentación ejecutiva' },
+    { nombre: 'Simulación empresarial', desc: 'Resuelve un caso práctico de una empresa real: logística, presupuesto o proceso.', habilidades: 'Trabajo en equipo, metodologías ágiles, herramientas colaborativas' }
+  ];
+
+  const certificaciones = [
+    ['Google Data Analytics', 'Coursera / Google', 'Certificación profesional en análisis de datos con herramientas prácticas.'],
+    ['Google Project Management', 'Coursera / Google', 'Gestión de proyectos con enfoque ágil y Scrum.'],
+    ['Microsoft Azure Fundamentals', 'Microsoft', 'Fundamentos de computación en la nube.'],
+    ['AWS Cloud Practitioner', 'Amazon Web Services', 'Introducción a servicios cloud y arquitectura.'],
+    ['Meta Front-End Developer', 'Coursera / Meta', 'Desarrollo web front-end con tecnologías modernas.'],
+    ['IBM Data Science', 'Coursera / IBM', 'Ciencia de datos aplicada con Python y SQL.'],
+    ['CCNA – Cisco', 'Cisco', 'Redes y conectividad, base para infraestructura TI.'],
+    ['Oracle Cloud Infrastructure', 'Oracle', 'Fundamentos de infraestructura cloud Oracle.']
+  ];
+
+  const herramientas = [
+    'Visual Studio Code', 'Figma', 'GitHub / GitLab', 'Docker', 'Notion', 'Trello / Jira', 'Slack / Teams',
+    'Power BI / Tableau', 'Excel / Google Sheets', 'Python / Jupyter', 'Postman', 'Terminal / CLI', 'Canva'
+  ];
+
+  const portafolio = [
+    'Proyectos personales documentados con objetivos y resultados.',
+    'Casos de estudio breves (problema, solución, impacto).',
+    'Certificados obtenidos organizados por área.',
+    'Participación en hackatones o retos técnicos.',
+    'Contribuciones a proyectos open-source en GitHub.',
+    'Sitio web personal con sección "Sobre mí", proyectos y contacto.',
+    'Perfil profesional actualizado en LinkedIn.'
+  ];
+
+  const cuandoBuscarEmpleo = [
+    '✅ Has completado al menos dos proyectos reales.',
+    '✅ Tienes un portafolio organizado con evidencias.',
+    '✅ Dominas las herramientas principales del área.',
+    '✅ Has obtenido al menos una certificación reconocida.',
+    '✅ Participas en comunidades profesionales (presenciales o virtuales).',
+    '✅ Tienes claridad sobre el tipo de rol al que quieres postularte.',
+    '🟡 Si cumples 4 o más de estos puntos, ya puedes empezar a postularte.'
+  ];
+
+  const planSemanal = [
+    ['Lunes', 'Teoría y lectura', 'Estudia un tema nuevo, toma notas y consulta documentación.'],
+    ['Martes', 'Ejercicios prácticos', 'Resuelve retos cortos o ejercicios relacionados con el tema.'],
+    ['Miércoles', 'Práctica guiada', 'Sigue un tutorial o curso práctico aplicando lo aprendido.'],
+    ['Jueves', 'Proyecto personal', 'Avanza en tu proyecto: escribe código, diseña o analiza datos.'],
+    ['Viernes', 'Repaso y refuerzo', 'Repasa conceptos de la semana, resuelve dudas y organiza notas.'],
+    ['Sábado', 'Portafolio y comunidad', 'Actualiza tu portafolio, participa en foros o grupos de estudio.'],
+    ['Domingo', 'Descanso o lectura ligera', 'Desconecta o lee artículos, blogs o escucha podcasts del sector.']
+  ];
+
+  const erroresComunes = [
+    'Querer aprender demasiadas herramientas al mismo tiempo.',
+    'No practicar lo suficiente después de la teoría.',
+    'No construir un portafolio desde el inicio.',
+    'No participar en comunidades profesionales.',
+    'Abandonar por falta de resultados inmediatos.',
+    'Compararse constantemente con perfiles más avanzados.',
+    'No establecer metas semanales concretas.',
+    'Estudiar sin un plan o ruta definida.',
+    'No pedir retroalimentación sobre proyectos o avances.',
+    'Esperar a "estar listo" para comenzar a postularse.'
+  ];
+
+  const medirProgreso = [
+    '✅ He completado al menos un curso estructurado.',
+    '✅ He realizado mi primer proyecto práctico.',
+    '✅ He obtenido una certificación reconocida.',
+    '✅ He creado y publicado mi portafolio.',
+    '✅ Participo activamente en al menos una comunidad profesional.',
+    '✅ He enviado mis primeras postulaciones laborales.',
+    '✅ He recibido retroalimentación de un mentor o par.',
+    '✅ Tengo una rutina de estudio definida y la cumplo.',
+    '✅ Puedo explicar mi profesión y lo que sé hacer con claridad.',
+    '✅ Identifico mis fortalezas y áreas de mejora profesional.'
   ];
 
   return `
     <div class="page-grid">
-      <article class="page-card">
-        <h3>Microcursos</h3>
-        <div class="page-section">
-          <ul>${microcursos.map(([name, copy]) => `<li><strong>${name}</strong>: ${copy}</li>`).join('')}</ul>
+      <!-- 1. Ruta de aprendizaje recomendada -->
+      <article class="page-card page-card-wide">
+        <div class="page-card-accent"></div>
+        <h3 class="guide-section-title">1. Ruta de aprendizaje recomendada</h3>
+        <p class="guide-section-intro">Un plan ordenado desde lo básico hasta lo avanzado. Cada nivel incluye objetivos claros para que sepas exactamente cuál es tu siguiente paso.</p>
+        <div class="guide-path">
+          ${learningPath.map((item, i) => `
+            <div class="guide-path-step">
+              <div class="guide-path-marker">${i + 1}</div>
+              <div class="guide-path-content">
+                <h4>${item.level}</h4>
+                <p>${item.desc}</p>
+                <span class="guide-path-duration">⏱ ${item.duration}</span>
+              </div>
+            </div>
+          `).join('')}
         </div>
       </article>
+
+      <!-- 2. Temas que debe estudiar -->
       <article class="page-card">
-        <h3>Proyectos</h3>
-        <div class="page-section">
-          <ul>${proyectos.map(item => `<li>${item}</li>`).join('')}</ul>
+        <h3 class="guide-section-title">2. Temas que debe estudiar</h3>
+        <p class="guide-section-intro">Un plan de estudios concreto, no una lista genérica de habilidades.</p>
+        <ul class="guide-list guide-list-check">
+          ${studyTopics.map(topic => `<li>${topic}</li>`).join('')}
+        </ul>
+      </article>
+
+      <!-- 3. Recursos recomendados -->
+      <article class="page-card page-card-wide">
+        <h3 class="guide-section-title">3. Recursos recomendados</h3>
+        <p class="guide-section-intro">Enlaces y sugerencias organizadas por tipo y nivel de dificultad.</p>
+        <div class="guide-resources">
+          <div class="guide-resource-category">
+            <h4>🎓 Cursos gratuitos</h4>
+            <ul class="guide-list">
+              ${recursos.gratuitos.map(([name, url, level]) => `<li><a href="${url}" target="_blank" rel="noreferrer">${name}</a> <span class="guide-tag">${level}</span></li>`).join('')}
+            </ul>
+          </div>
+          <div class="guide-resource-category">
+            <h4>📜 Cursos certificados</h4>
+            <ul class="guide-list">
+              ${recursos.certificados.map(([name, url, level]) => `<li><a href="${url}" target="_blank" rel="noreferrer">${name}</a> <span class="guide-tag">${level}</span></li>`).join('')}
+            </ul>
+          </div>
+          <div class="guide-resource-category">
+            <h4>📚 Libros recomendados</h4>
+            <ul class="guide-list">
+              ${recursos.libros.map(([name, area]) => `<li><strong>${name}</strong> <span class="guide-tag">${area}</span></li>`).join('')}
+            </ul>
+          </div>
+          <div class="guide-resource-category">
+            <h4>▶️ Canales de YouTube</h4>
+            <ul class="guide-list">
+              ${recursos.youtube.map(([name, url]) => `<li><a href="${url}" target="_blank" rel="noreferrer">${name}</a></li>`).join('')}
+            </ul>
+          </div>
+          <div class="guide-resource-category">
+            <h4>📝 Blogs especializados</h4>
+            <ul class="guide-list">
+              ${recursos.blogs.map(([name, url]) => `<li><a href="${url}" target="_blank" rel="noreferrer">${name}</a></li>`).join('')}
+            </ul>
+          </div>
+          <div class="guide-resource-category">
+            <h4>📖 Documentación oficial</h4>
+            <ul class="guide-list">
+              ${recursos.documentacion.map(([name, url]) => `<li><a href="${url}" target="_blank" rel="noreferrer">${name}</a></li>`).join('')}
+            </ul>
+          </div>
         </div>
       </article>
+
+      <!-- 4. Tiempo estimado -->
       <article class="page-card">
-        <h3>Rutinas de estudio</h3>
-        <div class="page-section">
-          <ul>${rutinas.map(item => `<li>${item}</li>`).join('')}</ul>
+        <h3 class="guide-section-title">4. Tiempo estimado por etapa</h3>
+        <p class="guide-section-intro">Establece expectativas realistas sobre la duración de tu preparación.</p>
+        <div class="guide-timeline">
+          ${learningPath.map(item => `
+            <div class="guide-timeline-row">
+              <span class="guide-timeline-level">${item.level}</span>
+              <span class="guide-timeline-duration">${item.duration}</span>
+            </div>
+          `).join('')}
         </div>
+      </article>
+
+      <!-- 5. Proyectos para practicar -->
+      <article class="page-card page-card-wide">
+        <h3 class="guide-section-title">5. Proyectos para practicar</h3>
+        <p class="guide-section-intro">No basta con estudiar teoría. Estos proyectos te acercan a situaciones laborales reales.</p>
+        <div class="guide-projects">
+          ${proyectosPractica.map(p => `
+            <div class="guide-project">
+              <h4>${p.nombre}</h4>
+              <p>${p.desc}</p>
+              <div class="guide-project-skills">
+                ${p.habilidades.split(', ').map(s => `<span class="guide-tag">${s}</span>`).join('')}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </article>
+
+      <!-- 6. Certificaciones recomendadas -->
+      <article class="page-card page-card-wide">
+        <h3 class="guide-section-title">6. Certificaciones recomendadas</h3>
+        <p class="guide-section-intro">Las certificaciones más reconocidas que fortalecen tu perfil profesional.</p>
+        <div class="guide-certs">
+          ${certificaciones.map(([nombre, entidad, desc]) => `
+            <div class="guide-cert">
+              <h4>${nombre}</h4>
+              <p><strong>${entidad}</strong></p>
+              <p>${desc}</p>
+            </div>
+          `).join('')}
+        </div>
+      </article>
+
+      <!-- 7. Herramientas que utilizará -->
+      <article class="page-card">
+        <h3 class="guide-section-title">7. Herramientas que utilizará</h3>
+        <p class="guide-section-intro">Software y plataformas que usarás en tu día a día profesional.</p>
+        <div class="guide-tools">
+          ${herramientas.map(h => `<span class="guide-tool-chip">${h}</span>`).join('')}
+        </div>
+      </article>
+
+      <!-- 8. Cómo construir el portafolio -->
+      <article class="page-card">
+        <h3 class="guide-section-title">8. Cómo construir el portafolio</h3>
+        <p class="guide-section-intro">Evidencias que debes reunir para demostrar tu preparación.</p>
+        <ul class="guide-list guide-list-check">
+          ${portafolio.map(item => `<li>${item}</li>`).join('')}
+        </ul>
+      </article>
+
+      <!-- 9. Cuándo empezar a buscar empleo -->
+      <article class="page-card">
+        <h3 class="guide-section-title">9. Cuándo empezar a buscar empleo</h3>
+        <p class="guide-section-intro">Indicadores clave para saber si estás listo para postularte.</p>
+        <ul class="guide-list guide-list-check">
+          ${cuandoBuscarEmpleo.map(item => `<li>${item}</li>`).join('')}
+        </ul>
+      </article>
+
+      <!-- 10. Plan semanal de estudio -->
+      <article class="page-card page-card-wide">
+        <h3 class="guide-section-title">10. Plan semanal de estudio</h3>
+        <p class="guide-section-intro">Organiza tu tiempo de manera equilibrada con esta estructura semanal.</p>
+        <div class="guide-weekly">
+          ${planSemanal.map(([dia, actividad, desc]) => `
+            <div class="guide-weekly-row">
+              <span class="guide-weekly-day">${dia}</span>
+              <span class="guide-weekly-activity">${actividad}</span>
+              <span class="guide-weekly-desc">${desc}</span>
+            </div>
+          `).join('')}
+        </div>
+      </article>
+
+      <!-- 11. Errores comunes -->
+      <article class="page-card">
+        <h3 class="guide-section-title">11. Errores comunes</h3>
+        <p class="guide-section-intro">Advertencias sobre lo que suele dificultar el aprendizaje.</p>
+        <ul class="guide-list guide-list-warn">
+          ${erroresComunes.map(err => `<li>${err}</li>`).join('')}
+        </ul>
+      </article>
+
+      <!-- 12. Cómo medir el progreso -->
+      <article class="page-card">
+        <h3 class="guide-section-title">12. Cómo medir el progreso</h3>
+        <p class="guide-section-intro">Metas alcanzables para visualizar tu avance y mantenerte motivado.</p>
+        <ul class="guide-list guide-list-check">
+          ${medirProgreso.map(item => `<li>${item}</li>`).join('')}
+        </ul>
       </article>
     </div>`;
 }
