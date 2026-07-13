@@ -226,7 +226,7 @@ function buildScoreOverviewCard(r) {
         <div class="stat-box"><div class="stat-label">GeoPly Score</div><div class="stat-value" style="color:${v.color}">${r.geoplyScore}</div></div>
         <div class="stat-box"><div class="stat-label">Índice Oportunidad</div><div class="stat-value">${r.idxOportunidad}</div></div>
         <div class="stat-box"><div class="stat-label">Ranking Competitividad</div><div class="stat-value">#${r.competitividad.puesto}/${r.competitividad.de}</div></div>
-        <div class="stat-box"><div class="stat-label">Registros API asignados</div><div class="stat-value">${r.registrosAsignados}</div></div>
+        <div class="stat-box dash-sources-trigger" onclick="openSourcesModal()" title="Haz clic para verificar la información en las fuentes oficiales"><div class="stat-label">Registros API asignados</div><div class="stat-value">${r.registrosAsignados}</div></div>
       </div>
       ${narrativeToggleHtml('geoplyScore', r, 'overview')}
     </article>
@@ -444,6 +444,50 @@ function buildCompetitividadCard(r) {
     </article>
   `;
 }
+
+const SOURCES_LINKS = [
+  { url: 'https://www.datos.gov.co/', label: 'Datos Abiertos Colombia — Portal principal', desc: 'Portal oficial de datos abiertos del gobierno colombiano.' },
+  { url: 'https://www.dane.gov.co/', label: 'DANE — Departamento Administrativo Nacional de Estadística', desc: 'Fuente oficial de estadísticas laborales, demográficas y económicas de Colombia.' },
+  { url: 'https://www.datos.gov.co/browse?limitTo=datasets&q=empleo', label: 'Datos Abiertos — Conjuntos sobre empleo', desc: 'Catálogo de datasets relacionados con empleo, vacantes y mercado laboral.' },
+  { url: 'https://www.serviciodeempleo.gov.co/', label: 'Servicio Público de Empleo (SPE)', desc: 'Plataforma oficial para búsqueda de empleo y registro de vacantes en Colombia.' },
+  { url: 'https://www.datos.gov.co/browse?q=mercado+laboral', label: 'Datos Abiertos — Mercado laboral', desc: 'Conjuntos de datos abiertos sobre indicadores del mercado laboral colombiano.' },
+];
+
+window.openSourcesModal = function () {
+  const overlay = document.getElementById('sources-modal-overlay');
+  if (!overlay) return;
+
+  const list = document.getElementById('sources-list');
+  if (list && typeof SOURCES_LINKS !== 'undefined') {
+    list.innerHTML = SOURCES_LINKS.map(s => `
+      <li class="sources-list-item">
+        <a class="sources-link" href="${s.url}" target="_blank" rel="noopener noreferrer">
+          <span class="sources-link-label">${s.label}</span>
+          <span class="sources-link-desc">${s.desc}</span>
+        </a>
+      </li>
+    `).join('');
+  }
+
+  overlay.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+};
+
+window.closeSourcesModal = function () {
+  const overlay = document.getElementById('sources-modal-overlay');
+  if (overlay) {
+    overlay.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+};
+
+// Close sources modal only when clicking the dark backdrop, not the card
+document.getElementById('sources-modal-overlay').addEventListener('click', function (e) {
+  if (e.target === this) {
+    this.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+});
 
 function buildTendenciaCard(r) {
   const idx = computeAllIndicators();

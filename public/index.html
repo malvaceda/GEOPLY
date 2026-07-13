@@ -580,6 +580,23 @@ Soy empresa
     </div>
   </div>
 
+  <!-- Sources Modal: Accede a las Fuentes Originales -->
+  <div id="sources-modal-overlay" class="sources-modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Accede a las Fuentes Originales">
+    <div class="sources-modal-card" id="sources-modal-card">
+      <div class="sources-modal-header">
+        <span class="sources-modal-title">Accede a las Fuentes Originales</span>
+        <button class="sources-modal-close" onclick="closeSourcesModal()" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="sources-modal-body">
+        <p class="sources-modal-intro">
+          Estos son los portales y conjuntos de datos abiertos que alimentan el modelo GeoPly.
+          Haz clic en cada enlace para verificar la información directamente en las fuentes oficiales.
+        </p>
+        <ul class="sources-list" id="sources-list"></ul>
+      </div>
+    </div>
+  </div>
+
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script>
     window.__heatReady = false;
