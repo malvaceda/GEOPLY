@@ -5,12 +5,12 @@ console.log('[GeoPly] app.js loaded');
 
 const MAP_CENTER = [4.5709, -74.2973];
 const MAP_ZOOM   = 5;
-const MEDELLIN_ZOOM_THRESHOLD = 9.2; // a partir de este zoom se muestran las comunas de Medellín
+const MEDELLIN_ZOOM_THRESHOLD = 9.2;
 
 const STATE = {
-  selectedDept:     null,   // nombre del departamento activo
-  selectedComuna:   null,   // nombre de la comuna de Medellín activa (si aplica)
-  selectedArea:     'all',  // área de interés activa (para el panel de empleo)
+  selectedDept:     null,
+  selectedComuna:   null,
+  selectedArea:     'all',
   sidebarLeftOpen:  false,
   sidebarRightOpen: false,
   heroCollapsed: false,
@@ -115,7 +115,6 @@ document.addEventListener('DOMContentLoaded', () => {
     window.__geoInitStatus = 'calling-init-map';
     initMap();
     loadAllDatasets();
-    // buildDeptQuicklist(); // Se quitó la lista de botones de departamentos (queda solo el buscador de arriba)
     initInteractivePanels();
     initSearch();
     initCompanyPanel();
@@ -224,10 +223,6 @@ function stampPerf() {
 
 window.resetView = function () {
   if (!MAP) return;
-  // Primero recalculamos el tamaño real del contenedor (puede haber cambiado
-  // si un panel lateral estaba abierto) y solo después centramos; si se hace
-  // en el orden contrario, Leaflet puede "centrar" sobre un tamaño viejo y
-  // el mapa termina viéndose desplazado de Colombia.
   MAP.invalidateSize({ animate: false });
   MAP.flyTo(MAP_CENTER, MAP_ZOOM, { duration: 0.9 });
 };
@@ -1011,9 +1006,14 @@ function buildEmploymentGuidePage() {
   const readOnly = hasSaved && !editingEnabled;
   const disabledAttr = readOnly ? 'disabled' : '';
   const editButton = hasSaved ? `
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <button type="button" id="employment-form-edit-btn" class="form-submit secondary" onclick="toggleEmploymentFormEdit()" ${editingEnabled ? 'disabled' : ''}>
               ${editingEnabled ? 'Edición activa' : 'Editar perfil'}
-            </button>` : '';
+            </button>
+            <button type="button" id="employment-form-clear-btn" class="form-submit secondary" style="--btn-bg:var(--danger);background:var(--danger);color:white;" onclick="clearEmploymentForm()">
+              🗑 &nbsp;Limpiar formulario
+            </button>
+          </div>` : '';
 
   return `
     <div class="page-grid page-grid-single">
@@ -1192,6 +1192,24 @@ window.toggleEmploymentFormEdit = function () {
   }
   const submitBtn = document.getElementById('employment-form-submit');
   if (submitBtn) submitBtn.disabled = false;
+};
+
+window.clearEmploymentForm = function () {
+  const form = document.getElementById('employment-form');
+  if (!form) return;
+  form.reset();
+  form.querySelectorAll('input, select, textarea').forEach(el => {
+    if (el.type === 'checkbox') {
+      el.checked = false;
+    } else if (el.type === 'number') {
+      el.value = '';
+    } else {
+      el.value = '';
+    }
+  });
+  const modalidad = document.getElementById('guide-modalidad');
+  if (modalidad) modalidad.value = 'Presencial';
+  showToast('Formulario limpiado');
 };
 
 window.showEmploymentFormSuccess = function () {
@@ -1494,7 +1512,7 @@ function renderCompanyVacancies() {
 
 function selectDeptFromSearch(deptName) {
   if (deptName && MAP) {
-    selectDept(deptName, null); // abre el panel derecho primero
+    selectDept(deptName, null);
     showToast(`Mostrando ${deptName}`);
 
     const findCentro = () => {
@@ -1514,11 +1532,6 @@ function selectDeptFromSearch(deptName) {
       }
     };
 
-    // Esperamos a que termine la transición del panel lateral (que cambia el
-    // ancho del mapa) y a que invalidateSize lo reajuste, antes de volar —
-    // así no vuela sobre un mapa todavía desalineado. Usamos el evento real
-    // de fin de transición del panel como disparador principal, con un
-    // timeout de respaldo por si el panel ya estaba abierto (sin transición).
     const rightSidebarEl = document.querySelector('.sidebar-right');
     let flown = false;
     const runOnce = () => { if (flown) return; flown = true; flyToDept(); };
@@ -1548,10 +1561,6 @@ window.actualizarEmpresa = actualizarEmpresa;
 window.publicarVacante = publicarVacante;
 window.selectDeptFromSearch = selectDeptFromSearch;
 
-// ------------------------------------------------------------------
-// Colores por GeoPly Score
-// ------------------------------------------------------------------
-
 function colorForScore(score) {
   if (score >= 70) return '#00ff88';
   if (score >= 45) return '#ffd700';
@@ -1576,10 +1585,6 @@ function buildDeptStyle(deptName, isActive) {
     fillOpacity: isActive ? 0.72 : 0.42,
   };
 }
-
-// ------------------------------------------------------------------
-// Render de polígonos (departamentos y comunas de Medellín)
-// ------------------------------------------------------------------
 
 function renderDeptPolygons() {
   if (!MAP || typeof DEPT_BOUNDARIES === 'undefined') return;
@@ -1635,10 +1640,6 @@ function renderComunaPolygons() {
     layer.addTo(comunaLayer);
   });
 }
-
-// ------------------------------------------------------------------
-// Selección de departamento / comuna
-// ------------------------------------------------------------------
 
 function selectDept(deptName, poly) {
   STATE.selectedDept = deptName;
@@ -1716,8 +1717,6 @@ function openDeptDetail(deptName) {
 }
 
 function openComunaDetail(comunaName) {
-  // No hay estadísticas DANE oficiales a nivel de comuna en las fuentes cargadas;
-  // se muestra honestamente el contexto departamental (Antioquia) para no inventar cifras locales.
   const idx = computeAllIndicators();
   const r = idx.byDept['Antioquia'];
 
@@ -1819,10 +1818,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// ------------------------------------------------------------------
-// Modal "Soy Aspirante" — sin cambios de lógica respecto a la versión anterior
-// ------------------------------------------------------------------
-
 window.abrirModal = function (id) {
   const modal = document.getElementById(id);
   if (!modal) return;
@@ -1891,6 +1886,23 @@ function mostrarPerfilAspirante(data) {
 
   document.getElementById('profile-aspirante').classList.remove('hidden');
 }
+
+window.clearAspiranteForm = function () {
+  const form = document.getElementById('form-aspirante');
+  if (!form) return;
+  form.reset();
+  form.nivel_educativo.value = 'universitario';
+  form.experiencia_anios.value = 0;
+  form.area_interes.value = 'tecnologia';
+  form.aspiracion_salarial.value = 1300000;
+  if (form.descripcion) form.descripcion.value = '';
+  document.getElementById('profile-aspirante')?.classList.add('hidden');
+  form.style.display = '';
+  delete form.dataset.editMode;
+  const btn = form.querySelector('.form-submit');
+  if (btn) btn.textContent = 'Registrarme en GeoPly';
+  showToast('Formulario limpiado');
+};
 
 window.activarEdicionAspirante = function () {
   const saved = JSON.parse(localStorage.getItem('geoply_aspirante'));

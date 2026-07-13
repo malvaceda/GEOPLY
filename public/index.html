@@ -223,9 +223,14 @@ Soy empresa
           <div class="profile-name" id="profile-nombre"></div>
         </div>
         <div class="profile-fields" id="profile-fields"></div>
-        <button class="form-submit profile-edit-btn" onclick="activarEdicionAspirante()">
-          ✎ &nbsp;Editar
-        </button>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="form-submit profile-edit-btn" onclick="activarEdicionAspirante()">
+            ✎ &nbsp;Editar
+          </button>
+          <button class="form-submit profile-edit-btn" style="background:var(--danger);color:white;" onclick="clearAspiranteForm()">
+            🗑 &nbsp;Limpiar formulario
+          </button>
+        </div>
       </div>
         <form id="form-aspirante" onsubmit="registrarAspirante(event)">
           <div class="form-row">

@@ -1582,6 +1582,27 @@ box-shadow:0 0 0 rgba(79,70,229,.2);
 
 .profile-edit-btn {
   margin-top: 4px;
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 16px;
+  min-width: 120px;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  transition: all var(--fast);
+  font-family: var(--ff-body);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+.profile-edit-btn:hover {
+  background: var(--surface-soft);
 }
 
 .geoply-tooltip {
@@ -2076,7 +2097,8 @@ background:var(--primary-dark);
   margin-bottom: 16px;
 }
 
-#employment-form-edit-btn {
+#employment-form-edit-btn,
+#employment-form-clear-btn {
   width: auto;
   min-width: 120px;
   padding: 8px 14px;
@@ -2188,7 +2210,6 @@ background:var(--primary-dark);
 }
 .help-btn-text { white-space:nowrap; }
 
-/* ===== Guía de Aprendizaje Styles ===== */
 .guide-section-title {
   font-family: var(--ff-mono);
   font-size: 13px;

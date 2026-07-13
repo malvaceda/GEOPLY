@@ -33,7 +33,7 @@ function matchesAreaKeyword(text, areaId) {
 }
 
 function buildDeptRecordIndex() {
-  const index = {}; // nombreDepto -> [ {record, datasetId, datasetName} ]
+  const index = {};
   DEPARTAMENTOS_EMPLEO.forEach(d => { index[d.nombre] = []; });
 
   (typeof EMPLEO_RECORDS !== 'undefined' ? EMPLEO_RECORDS : []).forEach(item => {
@@ -42,7 +42,6 @@ function buildDeptRecordIndex() {
       ? findDeptForPoint(item.geo.lat, item.geo.lng)
       : null;
 
-    // Fallback: buscar nombre de departamento textualmente en el registro.
     if (!dept) {
       for (const key of Object.keys(item.record)) {
         const nk = normalizeKey(key);
@@ -120,7 +119,6 @@ function computeIndicatorsForDept(deptName, deptRecordIndex, allDeptStats) {
   const tasaDesempleo = d.td;
   const tasaOcupacion = d.to;
 
-  // --- Var 4: Informalidad (estimada — no hay dato oficial por depto en las fuentes cargadas) ---
   const avgTD = DEPARTAMENTOS_EMPLEO.reduce((s, x) => s + x.td, 0) / DEPARTAMENTOS_EMPLEO.length;
   const informalidadEstimada = nt
     ? roundN(clamp(nt.tasa_informalidad_nacional + (d.td - avgTD) * 1.6, 25, 80))
@@ -128,14 +126,13 @@ function computeIndicatorsForDept(deptName, deptRecordIndex, allDeptStats) {
 
   let crecimientoEmpleo = null;
   if (typeof d.td_2018 === 'number') {
-    const variacionPP = roundN(d.td_2018 - d.td, 2); // positivo = mejora (bajó desempleo)
+    const variacionPP = roundN(d.td_2018 - d.td, 2);
     crecimientoEmpleo = {
       variacionPP,
       direccion: variacionPP > 0.3 ? 'mejora' : variacionPP < -0.3 ? 'deterioro' : 'estable',
     };
   }
 
-  // --- Var 6: Sectores con mayor demanda (campo categórico principal) ---
   const catDetect = detectCategoricalField(items, { exclude: ['municipio', 'ciudad', 'departamento'] });
   const sectoresDemanda = catDetect ? Object.entries(catDetect.counts)
     .sort((a, b) => b[1] - a[1]).slice(0, 6)
@@ -233,7 +230,6 @@ function computeAllIndicators(forceRefresh = false) {
 
   const deptRecordIndex = buildDeptRecordIndex();
 
-  // Conteo categórico nacional (para Location Quotient)
   const allItems = Object.values(deptRecordIndex).flat();
   const natDetect = detectCategoricalField(allItems, { exclude: ['municipio', 'ciudad', 'departamento'] });
   const allDeptStats = {
@@ -246,11 +242,9 @@ function computeAllIndicators(forceRefresh = false) {
     results[d.nombre] = computeIndicatorsForDept(d.nombre, deptRecordIndex, allDeptStats);
   });
 
-  // --- Var 13: Competitividad territorial (ranking por idxOportunidad) ---
   const ranked = Object.values(results).sort((a, b) => b.idxOportunidad - a.idxOportunidad);
   ranked.forEach((r, i) => { r.competitividad = { puesto: i + 1, de: ranked.length }; });
 
-  // --- Var 15: GeoPly Score (compuesto ponderado) ---
   Object.values(results).forEach(r => {
     const scoreOportunidad = r.idxOportunidad;
     const scoreCrecimiento = r.crecimientoEmpleo

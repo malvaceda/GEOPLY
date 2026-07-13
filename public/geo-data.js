@@ -4,8 +4,8 @@ function normalizeKey(str) {
   return String(str || '')
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')   // quita tildes
-    .replace(/[^a-z0-9 ]/g, ' ')       // quita signos
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9 ]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -87,18 +87,9 @@ const COL_COORDS = Object.freeze({
   'colombia':            [4.5709, -74.2973],
 });
 
-/**
- * Intenta extraer coordenadas [lat, lng] de un registro de la API
- * usando, en orden:
- *  1. Campos geo-point tipo GeoJSON ({type:'Point', coordinates:[lon,lat]})
- *  2. Campos explícitos de latitud/longitud
- *  3. Nombre de municipio o departamento (vía COL_COORDS)
- * Devuelve {lat, lng, approx:boolean} o null si no se pudo ubicar.
- */
 function extractGeo(record) {
   if (!record || typeof record !== 'object') return null;
 
-  // 1. GeoJSON Point embebido (campos como the_geom, georeferencia, etc.)
   for (const key of Object.keys(record)) {
     const val = record[key];
     if (val && typeof val === 'object' && val.type === 'Point' && Array.isArray(val.coordinates)) {
@@ -110,7 +101,6 @@ function extractGeo(record) {
     }
   }
 
-  // 2. Campos explícitos lat/lng
   const LAT_KEYS = ['latitud', 'lat', 'latitude', 'y', 'coord y', 'coordenada y'];
   const LNG_KEYS = ['longitud', 'long', 'lon', 'lng', 'longitude', 'x', 'coord x', 'coordenada x'];
 
@@ -127,7 +117,6 @@ function extractGeo(record) {
     }
   }
 
-  // 3. Nombre de municipio / departamento
   const CITY_KEYS = ['municipio', 'ciudad', 'nombre municipio', 'municipio nombre', 'nom mpio', 'mpio', 'nombre del municipio'];
   const DEPT_KEYS = ['departamento', 'depto', 'nombre departamento', 'departamento nombre', 'nom dep', 'nombre del departamento'];
 
