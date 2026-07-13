@@ -254,7 +254,3 @@ El proyecto busca responder una pregunta central: **¿dónde están las oportuni
 ## Licencia
 
 Este proyecto utiliza datos públicos del Gobierno de Colombia bajo los términos de la [Licencia de Datos Abiertos Gov.co](https://www.datos.gov.co/). El código fuente es de uso libre para fines académicos y de investigación.
-
----
-
-*Desarrollado desde Medellín, Antioquia.*
