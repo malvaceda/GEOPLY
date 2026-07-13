@@ -190,8 +190,8 @@ function renderDeptDashboard(deptName) {
   html += buildRatesCard(r);
   html += buildInformalidadCard(r);
   html += buildCrecimientoCard(r);
-  html += buildSectoresCard('sectoresDemanda', r, 'Sectores con Mayor Demanda');
-  html += buildSectoresCard('sectoresEmergentes', r, 'Sectores Emergentes (cociente de localización)');
+  html += buildSectoresCard('sectoresDemanda', r);
+  html += buildSectoresCard('sectoresEmergentes', r);
   html += buildCategoricalCard('nivelEducativo', r);
   html += buildPctCard('insercionJuvenil', r);
   html += buildGeneroCard(r);
@@ -299,7 +299,7 @@ function buildCrecimientoCard(r) {
   `;
 }
 
-function buildSectoresCard(varKey, r, titulo) {
+function buildSectoresCard(varKey, r) {
   const list = r[varKey] || [];
   if (!list.length) {
     return `
@@ -322,7 +322,7 @@ function buildSectoresCard(varKey, r, titulo) {
   }).join('');
   return `
     <article class="dash-card chart-card chart-card-wide">
-      <h3>${titulo}</h3>
+      <h3>${VARIABLE_META[varKey].titulo}</h3>
       <div class="chart-bars">${bars}</div>
       ${narrativeToggleHtml(varKey, r, varKey)}
     </article>

@@ -1705,8 +1705,6 @@ function openDeptDetail(deptName) {
     { lbl:'OCUPACIÓN (TO)',       val:`${r.tasaOcupacion}%`, sub:'tasa 2025', color:'#00ff88' },
     { lbl:'PARTICIPACIÓN (TGP)',  val:`${r.tasaParticipacion}%`, sub:'tasa 2025', color:'#4fc3f7' },
     { lbl:'SUBOCUPACIÓN (TS)',    val:`${r.tasaSubocupacion}%`, sub:'tasa 2025', color:'#ffd700' },
-    { lbl:'POBLACIÓN TOTAL',      val:r.poblacionTotal.toLocaleString(), sub:'miles de personas', color:'#a78bfa' },
-    { lbl:'POBLACIÓN OCUPADA',    val:r.poblacionOcupada.toLocaleString(), sub:'miles de personas', color:'#00ff88' },
   ]);
 
   const teaserEl = document.getElementById('d-teaser');

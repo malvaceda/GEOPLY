@@ -16,6 +16,38 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function normalize(v, lo, hi) { return clamp(((v - lo) / (hi - lo)) * 100, 0, 100); }
 function roundN(v, n = 1) { return Math.round(v * 10 ** n) / 10 ** n; }
 
+const SECTORES_FIJOS = Object.freeze([
+  { id: 'agricultura',                label: 'Agricultura',                                keywords: ['agricultur', 'agro', 'agrícola', 'campo', 'rural', 'cosech', 'cultiv', 'ganader', 'pecuario', 'silvicultur', 'pesca', 'forestal', 'veterin'] },
+  { id: 'mineria',                    label: 'Minería',                                    keywords: ['miner', 'minería', 'extracción', 'carbón', 'petróleo', 'gas', 'hidrocarbur', 'canter', 'mina', 'energético', 'combustible'] },
+  { id: 'industrias_manufactureras',  label: 'Industrias manufactureras',                  keywords: ['manufactur', 'fabril', 'producción', 'transformación', 'maquil', 'fábrica', 'industrial', 'procesamient', 'confección', 'textil', 'alimenticia', 'bebidas', 'químic', 'plástic', 'metalúrg', 'automotriz'] },
+  { id: 'construccion',              label: 'Construcción',                                keywords: ['construcción', 'construccion', 'obra', 'civil', 'edific', 'inmobiliari', 'arquitect', 'ingeniería civil', 'infraestructur'] },
+  { id: 'comercio',                  label: 'Comercio al por mayor y al por menor',        keywords: ['comercio', 'venta', 'retail', 'mayorista', 'minorista', 'distribución', 'mercadeo', 'mercanc', 'almacén', 'tienda', 'supermercado'] },
+  { id: 'comunicaciones',            label: 'Comunicaciones',                              keywords: ['comunicación', 'comunicacion', 'telecomunicación', 'telefón', 'internet', 'redes', 'medios', 'radiodifusión', 'telecom', 'conectividad', 'información', 'tecnologías de la información'] },
+  { id: 'actividades_financieras',    label: 'Actividades financieras',                    keywords: ['financier', 'bancari', 'crédito', 'seguro', 'inversión', 'finanza', 'bursátil', 'valores', 'tesorer'] },
+  { id: 'actividades_inmobiliarias',  label: 'Actividades inmobiliarias',                  keywords: ['inmobiliari', 'bienes raíces', 'propiedad', 'arrendamient', 'alquiler', 'inmueble', 'renta'] },
+  { id: 'administracion_publica',     label: 'Administración pública',                    keywords: ['administración pública', 'administracion publica', 'gobierno', 'estatal', 'público', 'oficial', 'estado', 'municipal', 'departamental', 'gubernamental', 'régimen', 'función pública'] },
+  { id: 'actividades_profesionales',  label: 'Actividades profesionales, científicas y técnicas', keywords: ['profesional', 'científic', 'técnico', 'consultor', 'asesor', 'investigación', 'asesoría', 'servicios profesionales', 'jurídic', 'legal', 'contable', 'administrativo', 'marketing', 'publicidad', 'diseño', 'ingeniería de sistem', 'consultoría'] },
+]);
+
+function countSectorMatches(items) {
+  const counts = {};
+  SECTORES_FIJOS.forEach(s => { counts[s.label] = 0; });
+  
+  items.forEach(({ record }) => {
+    const vals = Object.values(record).filter(v => typeof v === 'string').map(v => normalizeKey(v));
+    
+    SECTORES_FIJOS.forEach(sector => {
+      const matches = vals.some(val => sector.keywords.some(kw => val.includes(kw)));
+      if (matches) counts[sector.label]++;
+    });
+  });
+  
+  // Return only sectors that actually had matches, sorted by count descending
+  return Object.fromEntries(
+    Object.entries(counts).filter(([, c]) => c > 0).sort((a, b) => b[1] - a[1])
+  );
+}
+
 function matchesAreaKeyword(text, areaId) {
   const t = normalizeKey(text);
   const KEYWORDS = {
@@ -133,21 +165,28 @@ function computeIndicatorsForDept(deptName, deptRecordIndex, allDeptStats) {
     };
   }
 
-  const catDetect = detectCategoricalField(items, { exclude: ['municipio', 'ciudad', 'departamento'] });
-  const sectoresDemanda = catDetect ? Object.entries(catDetect.counts)
-    .sort((a, b) => b[1] - a[1]).slice(0, 6)
-    .map(([label, count]) => ({ label, count, pct: roundN((count / items.length) * 100) })) : [];
+  const sectorCounts = countSectorMatches(items);
+  const totalItems = items.length;
+  
+  // 6. Sectores con mayor demanda: all sectors with matches, sorted by count
+  const sectoresDemanda = totalItems > 0
+    ? Object.entries(sectorCounts).map(([label, count]) => ({ 
+        label, 
+        count, 
+        pct: roundN((count / totalItems) * 100) 
+      })).sort((a, b) => b.count - a.count).slice(0, 10)
+    : [];
 
+  // 7. Sectores emergentes: sectors with LQ > 1.15 compared to national average
   let sectoresEmergentes = [];
-  if (catDetect && allDeptStats && allDeptStats.nationalCategoryCounts) {
-    const totalLocal = items.length;
-    const totalNacional = allDeptStats.totalRecordsWithCategory || 1;
-    sectoresEmergentes = Object.entries(catDetect.counts).map(([label, count]) => {
-      const shareLocal = count / totalLocal;
-      const shareNacional = (allDeptStats.nationalCategoryCounts[label] || 0) / totalNacional;
+  if (totalItems > 0 && allDeptStats && allDeptStats.nationalSectorCounts) {
+    const totalNacional = allDeptStats.totalNationalRecords || 1;
+    sectoresEmergentes = Object.entries(sectorCounts).map(([label, count]) => {
+      const shareLocal = count / totalItems;
+      const shareNacional = (allDeptStats.nationalSectorCounts[label] || 0) / totalNacional;
       const lq = shareNacional > 0 ? shareLocal / shareNacional : 0;
       return { label, count, lq: roundN(lq, 2) };
-    }).filter(s => s.lq > 1.15).sort((a, b) => b.lq - a.lq).slice(0, 4);
+    }).filter(s => s.lq > 1.15).sort((a, b) => b.lq - a.lq).slice(0, 10);
   }
 
   const eduField = findFieldByPattern(items, ['nivel_educ', 'niveleduc', 'escolarid', 'educacion']);
@@ -231,10 +270,15 @@ function computeAllIndicators(forceRefresh = false) {
   const deptRecordIndex = buildDeptRecordIndex();
 
   const allItems = Object.values(deptRecordIndex).flat();
-  const natDetect = detectCategoricalField(allItems, { exclude: ['municipio', 'ciudad', 'departamento'] });
+  
+  // Compute national sector counts using fixed sectors (for indicators 6 and 7)
+  const nationalSectorCounts = countSectorMatches(allItems);
+  
   const allDeptStats = {
-    nationalCategoryCounts: natDetect ? natDetect.counts : {},
+    nationalCategoryCounts: nationalSectorCounts,
     totalRecordsWithCategory: allItems.length,
+    nationalSectorCounts,
+    totalNationalRecords: allItems.length,
   };
 
   const results = {};
@@ -367,6 +411,7 @@ function narrativeFor(varKey, r) {
   }
 }
 
+window.SECTORES_FIJOS = SECTORES_FIJOS;
 window.AREAS_INTERES = AREAS_INTERES;
 window.matchesAreaKeyword = matchesAreaKeyword;
 window.computeAllIndicators = computeAllIndicators;
